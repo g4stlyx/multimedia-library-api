@@ -1,0 +1,149 @@
+# TODO
+
+## Phase 0 - Foundation
+
+- [ ] Fix `app/database.py` to use `create_engine`.
+- [ ] Move database URL and secrets to `.env`.
+- [ ] Add `pydantic-settings` based app config.
+- [ ] Create `.env.example` with safe placeholder values.
+- [ ] Add Alembic migrations.
+- [ ] Add base SQLAlchemy model conventions.
+- [ ] Add pytest test setup.
+- [ ] Add structured JSON logging.
+- [ ] Add request ID middleware.
+
+## Phase 1 - Auth and Users
+
+- [ ] Create `users` table.
+- [ ] Create `user_credentials` table.
+- [ ] Add `USER` and `ADMIN` roles.
+- [ ] Add admin levels `0`, `1`, `2`.
+- [ ] Implement Argon2id password hashing.
+- [ ] Add password pepper from environment.
+- [ ] Implement register endpoint.
+- [ ] Implement login endpoint.
+- [ ] Implement 15-minute access JWTs.
+- [ ] Implement 30-day rotating refresh tokens.
+- [ ] Store only hashed refresh tokens.
+- [ ] Implement logout.
+- [ ] Implement logout-all.
+- [ ] Implement email verification tokens.
+- [ ] Implement password reset tokens.
+- [ ] Revoke refresh tokens after password reset.
+- [ ] Add auth error logging.
+- [ ] Add audit log model.
+- [ ] Add basic Redis-backed rate limiting.
+- [ ] Add ownership/permission helpers.
+
+## Phase 2 - Media Catalog
+
+- [ ] Create `media` table.
+- [ ] Create `media_external_ids` table.
+- [ ] Create `media_titles` table.
+- [ ] Create `media_images` table.
+- [ ] Create genre tables.
+- [ ] Add media type enum.
+- [ ] Add library status enum.
+- [ ] Add trigram search indexes.
+- [ ] Implement media repository.
+- [ ] Implement media service.
+- [ ] Implement local media search.
+- [ ] Build provider adapter base interface.
+- [ ] Implement TMDB provider adapter.
+- [ ] Implement provider request logging.
+- [ ] Implement media upsert by external ID.
+- [ ] Add duplicate candidate handling.
+- [ ] Add tests for duplicate prevention.
+
+## Phase 3 - Library and Social MVP
+
+- [ ] Create `user_media_entries` table.
+- [ ] Implement add/update/remove library entry.
+- [ ] Add unique active library constraint.
+- [ ] Create `reviews` table.
+- [ ] Implement create/update/delete review.
+- [ ] Enforce one active review per user/media.
+- [ ] Create `comments` table.
+- [ ] Implement review comments.
+- [ ] Create `lists` table.
+- [ ] Create `list_items` table.
+- [ ] Implement list CRUD.
+- [ ] Add soft delete support.
+- [ ] Add cross-user ownership tests.
+
+## Phase 4 - Providers and Seeding
+
+- [ ] Choose primary game provider for MVP.
+- [ ] Implement RAWG or IGDB adapter.
+- [ ] Implement Google Books adapter.
+- [ ] Implement Open Library adapter.
+- [ ] Implement Spotify adapter.
+- [ ] Add provider-specific rate limits.
+- [ ] Add provider backoff on `429`.
+- [ ] Create seed run tables.
+- [ ] Create idempotent seed worker.
+- [ ] Seed TMDB movies.
+- [ ] Seed TMDB series.
+- [ ] Seed games within provider limits.
+- [ ] Seed books from curated/open sources.
+- [ ] Keep music mostly on-demand.
+- [ ] Add provider attribution fields.
+
+## Phase 5 - Uploads and R2
+
+- [ ] Create `uploads` table.
+- [ ] Configure Cloudflare R2 client.
+- [ ] Implement profile image upload endpoint.
+- [ ] Enforce upload size limit.
+- [ ] Validate image magic bytes.
+- [ ] Decode and verify image dimensions.
+- [ ] Re-encode uploaded images.
+- [ ] Generate server-side object keys.
+- [ ] Store profile images in R2.
+- [ ] Add upload security tests.
+
+## Phase 6 - Imports
+
+- [ ] Create `import_jobs` table.
+- [ ] Create `import_items` table.
+- [ ] Implement async import worker.
+- [ ] Implement Letterboxd CSV parser.
+- [ ] Implement generic CSV parser.
+- [ ] Add import idempotency.
+- [ ] Match imports against local DB first.
+- [ ] Add provider fallback for unmatched rows.
+- [ ] Add import conflict handling.
+- [ ] Add Steam import design.
+- [ ] Add Spotify OAuth import design.
+- [ ] Add import ownership tests.
+
+## Phase 7 - Admin and Operations
+
+- [ ] Add admin router.
+- [ ] Protect admin routes by role and level.
+- [ ] Add level-0 audit log endpoint.
+- [ ] Add level-0 auth error endpoint.
+- [ ] Add media merge endpoint.
+- [ ] Add user ban endpoint.
+- [ ] Add admin role update endpoint.
+- [ ] Add provider health endpoint.
+- [ ] Add backup metadata table.
+- [ ] Implement nightly encrypted DB backup.
+- [ ] Delete local backup temp files after upload/send.
+- [ ] Email backup status notification.
+- [ ] Test database restore.
+
+## Phase 8 - Production Readiness
+
+- [ ] Add Docker setup.
+- [ ] Add CI test workflow.
+- [ ] Add dependency vulnerability scanning.
+- [ ] Configure strict CORS.
+- [ ] Configure secure cookies.
+- [ ] Add security headers.
+- [ ] Validate Cloudflare IP handling.
+- [ ] Add monitoring and alerting.
+- [ ] Add privacy policy and terms.
+- [ ] Re-check external API terms before launch.
+- [ ] Run full security review.
+- [ ] Run production restore drill.

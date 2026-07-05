@@ -1,0 +1,42 @@
+# Python Caches
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+
+# Virtual Environments
+venv/
+.venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# Environment Variables & Secrets (Never commit these!)
+.env
+.env.[a-zA-Z]*
+!.env.example
+secrets.json
+
+# IDE / Editor Configurations
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Database files (if using SQLite for local testing)
+*.db
+*.sqlite3
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Build & Distribution Packages
+dist/
+build/
+*.egg-info/

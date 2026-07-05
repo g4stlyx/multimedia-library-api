@@ -2,15 +2,15 @@
 
 ## Phase 0 - Foundation
 
-- [ ] Fix `app/database.py` to use `create_engine`.
-- [ ] Move database URL and secrets to `.env`.
-- [ ] Add `pydantic-settings` based app config.
-- [ ] Create `.env.example` with safe placeholder values.
-- [ ] Add Alembic migrations.
-- [ ] Add base SQLAlchemy model conventions.
-- [ ] Add pytest test setup.
-- [ ] Add structured JSON logging.
-- [ ] Add request ID middleware.
+- [x] Fix `app/database.py` to use `create_engine`.
+- [x] Move database URL and secrets to `.env`.
+- [x] Add `pydantic-settings` based app config.
+- [x] Create `.env.example` with safe placeholder values.
+- [x] Add Alembic migrations.
+- [x] Add base SQLAlchemy model conventions.
+- [x] Add pytest test setup.
+- [x] Add structured JSON logging.
+- [x] Add request ID middleware.
 
 ## Phase 1 - Auth and Users
 

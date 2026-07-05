@@ -1,18 +1,18 @@
-from sqlalchemy import create_backend, engine
-from sqlalchemy.orm import declarative_base, sessionmaker
+from collections.abc import Generator
 
-# Docker'da açtığımız Postgres adresi
-SQLALCHEMY_DATABASE_URL = "postgresql://g4stly:12345678@localhost:5432/multimedia_app"
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session, sessionmaker
 
-engine = create_backend(SQLALCHEMY_DATABASE_URL)
+from app.core.config import get_settings
+from app.models.base import Base
 
-# Spring'deki EntityManager/Session yapısının muadili
+settings = get_settings()
+
+engine = create_engine(str(settings.database_url), pool_pre_ping=True)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-Base = declarative_base()
 
-# Hızlıca DB Session yönetimi sağlayan Dependency Injection fonksiyonu
-def get_db():
+def get_db() -> Generator[Session, None, None]:
     db = SessionLocal()
     try:
         yield db

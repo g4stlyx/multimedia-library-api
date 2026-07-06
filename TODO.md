@@ -14,26 +14,26 @@
 
 ## Phase 1 - Auth and Users
 
-- [ ] Create `users` table.
-- [ ] Create `user_credentials` table.
-- [ ] Add `USER` and `ADMIN` roles.
-- [ ] Add admin levels `0`, `1`, `2`.
-- [ ] Implement Argon2id password hashing.
-- [ ] Add password pepper from environment.
-- [ ] Implement register endpoint.
-- [ ] Implement login endpoint.
-- [ ] Implement 15-minute access JWTs.
-- [ ] Implement 30-day rotating refresh tokens.
-- [ ] Store only hashed refresh tokens.
-- [ ] Implement logout.
-- [ ] Implement logout-all.
-- [ ] Implement email verification tokens.
-- [ ] Implement password reset tokens.
-- [ ] Revoke refresh tokens after password reset.
-- [ ] Add auth error logging.
-- [ ] Add audit log model.
-- [ ] Add basic Redis-backed rate limiting.
-- [ ] Add ownership/permission helpers.
+- [x] Create `users` table.
+- [x] Create `user_credentials` table.
+- [x] Add `USER` and `ADMIN` roles.
+- [x] Add admin levels `0`, `1`, `2`.
+- [x] Implement Argon2id password hashing.
+- [x] Add password pepper from environment.
+- [x] Implement register endpoint.
+- [x] Implement login endpoint.
+- [x] Implement 15-minute access JWTs.
+- [x] Implement 30-day rotating refresh tokens.
+- [x] Store only hashed refresh tokens.
+- [x] Implement logout.
+- [x] Implement logout-all.
+- [x] Implement email verification tokens.
+- [x] Implement password reset tokens.
+- [x] Revoke refresh tokens after password reset.
+- [x] Add auth error logging.
+- [x] Add audit log model.
+- [x] Add basic Redis-backed rate limiting.
+- [x] Add ownership/permission helpers.
 
 ## Phase 2 - Media Catalog
 

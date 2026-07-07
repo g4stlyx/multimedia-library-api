@@ -37,23 +37,24 @@
 
 ## Phase 2 - Media Catalog
 
-- [ ] Create `media` table.
-- [ ] Create `media_external_ids` table.
-- [ ] Create `media_titles` table.
-- [ ] Create `media_images` table.
-- [ ] Create genre tables.
-- [ ] Add media type enum.
-- [ ] Add library status enum.
-- [ ] Add trigram search indexes.
-- [ ] Implement media repository.
-- [ ] Implement media service.
-- [ ] Implement local media search.
-- [ ] Build provider adapter base interface.
-- [ ] Implement TMDB provider adapter.
-- [ ] Implement provider request logging.
-- [ ] Implement media upsert by external ID.
-- [ ] Add duplicate candidate handling.
-- [ ] Add tests for duplicate prevention.
+- [x] Create `media` table.
+- [x] Create `media_external_ids` table.
+- [x] Create `media_titles` table.
+- [x] Create `media_images` table.
+- [x] Create genre tables.
+- [x] Add media type enum.
+- [x] Add library status enum.
+- [x] Add trigram search indexes.
+- [x] Implement media repository.
+- [x] Implement media service.
+- [x] Implement local media search.
+- [x] Build provider adapter base interface.
+- [x] Implement TMDB provider adapter.
+- [x] Implement provider request logging.
+- [x] Implement media upsert by external ID.
+- [x] Add duplicate candidate handling.
+- [x] Add tests for duplicate prevention.
+
 
 ## Phase 3 - Library and Social MVP
 

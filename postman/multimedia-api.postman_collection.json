@@ -381,6 +381,141 @@
           ]
         }
       ]
+    },
+    {
+      "name": "Media",
+      "item": [
+        {
+          "name": "Search Media",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/{{api_prefix}}/media/search?q=Inception&type=MOVIE",
+              "host": ["{{base_url}}"],
+              "path": ["{{api_prefix}}", "media", "search"],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "Inception"
+                },
+                {
+                  "key": "type",
+                  "value": "MOVIE"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', function () { pm.response.to.have.status(200); });",
+                  "const body = pm.response.json();",
+                  "if (body && body.length > 0) {",
+                  "  const item = body[0];",
+                  "  if (item.id) { pm.environment.set('last_media_id', item.id); }",
+                  "  if (item.external_id) {",
+                  "    pm.environment.set('last_external_id', item.external_id);",
+                  "    pm.environment.set('last_external_provider', item.provider || 'tmdb');",
+                  "  }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Add External Media",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"provider\": \"{{last_external_provider}}\",\n  \"external_id\": \"{{last_external_id}}\",\n  \"media_type\": \"MOVIE\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/{{api_prefix}}/media/external/add",
+              "host": ["{{base_url}}"],
+              "path": ["{{api_prefix}}", "media", "external", "add"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', function () { pm.response.to.have.status(200); });",
+                  "const body = pm.response.json();",
+                  "if (body.id) pm.environment.set('last_media_id', body.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Media Details",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/{{api_prefix}}/media/{{last_media_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["{{api_prefix}}", "media", "{{last_media_id}}"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
     }
   ]
 }
+

@@ -42,6 +42,9 @@ class Settings(BaseSettings):
 
     trust_cloudflare_headers: bool = False
 
+    tmdb_api_key: str | None = None
+
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

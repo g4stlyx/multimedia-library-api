@@ -11,6 +11,12 @@ from app.schemas.auth import (
     UserPublic,
     VerifyEmailRequest,
 )
+from app.schemas.media import (
+    GenrePublic,
+    MediaExternalAddRequest,
+    MediaPublic,
+    MediaSearchResponse,
+)
 
 __all__ = [
     "AuthTokensResponse",
@@ -24,4 +30,9 @@ __all__ = [
     "ResendVerificationRequest",
     "UserPublic",
     "VerifyEmailRequest",
+    "GenrePublic",
+    "MediaExternalAddRequest",
+    "MediaPublic",
+    "MediaSearchResponse",
 ]
+

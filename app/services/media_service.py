@@ -1,0 +1,336 @@
+from __future__ import annotations
+
+import logging
+from datetime import datetime, timezone
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from app.core.config import Settings
+from app.core.normalization import normalize_title
+from app.models.media import Media, MediaType
+from app.providers.tmdb import TMDBProviderAdapter
+from app.repositories.media_repository import MediaRepository
+from app.schemas.media import MediaSearchResponse
+
+logger = logging.getLogger(__name__)
+
+
+class MediaService:
+    def __init__(self, db: Session, settings: Settings) -> None:
+        self.db = db
+        self.settings = settings
+        self.repo = MediaRepository(db)
+
+    async def search_media(
+        self,
+        query: str,
+        media_type: MediaType | None = None,
+        page: int = 1,
+        limit: int = 20,
+    ) -> list[MediaSearchResponse]:
+        query_normalized = normalize_title(query)
+        if not query_normalized:
+            return []
+
+        # 1. Search locally
+        local_results = self.repo.search_local(
+            query=query,
+            media_type=media_type,
+            limit=limit,
+        )
+
+        # Check if we have an exact title match locally
+        has_exact_local_match = any(
+            m.normalized_title == query_normalized for m in local_results
+        )
+
+        # If we have an exact match OR enough local results, return them immediately
+        if has_exact_local_match or len(local_results) >= 3:
+            return [
+                MediaSearchResponse(
+                    id=m.id,
+                    media_type=m.media_type,
+                    canonical_title=m.canonical_title,
+                    normalized_title=m.normalized_title,
+                    original_title=m.original_title,
+                    description=m.description,
+                    release_date=m.release_date,
+                    release_year=m.release_year,
+                    runtime_minutes=m.runtime_minutes,
+                    primary_language=m.primary_language,
+                    country_code=m.country_code,
+                    poster_url=m.poster_url,
+                    backdrop_url=m.backdrop_url,
+                    popularity_score=m.popularity_score,
+                    is_persisted=True,
+                )
+                for m in local_results
+            ]
+
+        # 2. Local miss/sparse results -> Query TMDB provider
+        tmdb_adapter = TMDBProviderAdapter(self.settings.tmdb_api_key, self.db)
+        external_results = []
+
+        if media_type in (MediaType.MOVIE, MediaType.SERIES, None):
+            # If media_type is None, we search both movies and series on TMDB
+            types_to_search = (
+                [media_type] if media_type else [MediaType.MOVIE, MediaType.SERIES]
+            )
+            for m_type in types_to_search:
+                results = await tmdb_adapter.search(
+                    query=query,
+                    media_type=m_type,
+                    limit=limit,
+                )
+                external_results.extend(results)
+
+        # Merge local and external results
+        combined_responses: list[MediaSearchResponse] = []
+        seen_external_keys = set()  # (provider, external_id)
+
+        # Map local results first
+        for m in local_results:
+            combined_responses.append(
+                MediaSearchResponse(
+                    id=m.id,
+                    media_type=m.media_type,
+                    canonical_title=m.canonical_title,
+                    normalized_title=m.normalized_title,
+                    original_title=m.original_title,
+                    description=m.description,
+                    release_date=m.release_date,
+                    release_year=m.release_year,
+                    runtime_minutes=m.runtime_minutes,
+                    primary_language=m.primary_language,
+                    country_code=m.country_code,
+                    poster_url=m.poster_url,
+                    backdrop_url=m.backdrop_url,
+                    popularity_score=m.popularity_score,
+                    is_persisted=True,
+                )
+            )
+            # Find associated external IDs to avoid adding duplicate external records later
+            for ext in m.external_ids:
+                seen_external_keys.add((ext.provider, ext.external_id))
+
+        # Add external results if they aren't already represented locally
+        for ext in external_results:
+            # Check if this external ID already mapped to a local item during the local search
+            if (ext.provider, ext.external_id) in seen_external_keys:
+                continue
+
+            # Double check database for existing matches (that may not have appeared in local search)
+            existing_media = self.repo.get_by_external_id(ext.provider, ext.external_id)
+            if existing_media:
+                combined_responses.append(
+                    MediaSearchResponse(
+                        id=existing_media.id,
+                        media_type=existing_media.media_type,
+                        canonical_title=existing_media.canonical_title,
+                        normalized_title=existing_media.normalized_title,
+                        original_title=existing_media.original_title,
+                        description=existing_media.description,
+                        release_date=existing_media.release_date,
+                        release_year=existing_media.release_year,
+                        runtime_minutes=existing_media.runtime_minutes,
+                        primary_language=existing_media.primary_language,
+                        country_code=existing_media.country_code,
+                        poster_url=existing_media.poster_url,
+                        backdrop_url=existing_media.backdrop_url,
+                        popularity_score=existing_media.popularity_score,
+                        is_persisted=True,
+                    )
+                )
+                seen_external_keys.add((ext.provider, ext.external_id))
+                continue
+
+            # Keep as unpersisted external result
+            combined_responses.append(
+                MediaSearchResponse(
+                    media_type=ext.media_type,
+                    canonical_title=ext.title,
+                    normalized_title=normalize_title(ext.title),
+                    original_title=ext.original_title,
+                    description=ext.description,
+                    release_date=ext.release_date,
+                    release_year=ext.release_year,
+                    runtime_minutes=ext.runtime_minutes,
+                    primary_language=ext.primary_language,
+                    country_code=ext.country_code,
+                    poster_url=ext.poster_url,
+                    backdrop_url=ext.backdrop_url,
+                    popularity_score=ext.popularity_score,
+                    provider=ext.provider,
+                    external_id=ext.external_id,
+                    is_persisted=False,
+                )
+            )
+            seen_external_keys.add((ext.provider, ext.external_id))
+
+        return combined_responses[:limit]
+
+    async def upsert_by_external_id(
+        self,
+        provider: str,
+        external_id: str,
+        media_type: MediaType,
+    ) -> Media:
+        provider_clean = provider.strip().lower()
+        external_id_clean = external_id.strip()
+
+        # 1. Exact external provider ID match wins
+        existing_media = self.repo.get_by_external_id(provider_clean, external_id_clean)
+        if existing_media:
+            return existing_media
+
+        # Fetch detailed metadata from external API (TMDB supported)
+        if provider_clean == "tmdb":
+            tmdb_adapter = TMDBProviderAdapter(self.settings.tmdb_api_key, self.db)
+            details = await tmdb_adapter.get_details(external_id_clean, media_type)
+        else:
+            raise ValueError(f"Provider '{provider}' is not supported in this phase")
+
+        # 2. Strong cross-provider ID match wins (e.g. IMDb ID mapping)
+        if details.imdb_id:
+            existing_by_imdb = self.repo.get_by_imdb_id(details.imdb_id)
+            if existing_by_imdb:
+                # Add current external provider mapping to existing media
+                self.repo.add_external_id(
+                    media_id=existing_by_imdb.id,
+                    provider=provider_clean,
+                    external_id=external_id_clean,
+                    provider_media_type=media_type.value,
+                    confidence=1.0,
+                )
+                self.db.commit()
+                return existing_by_imdb
+
+        # 3. Fuzzy match by normalized title and media type
+        normalized_title = normalize_title(details.title)
+        stmt = select(Media).where(
+            Media.media_type == media_type,
+            Media.normalized_title == normalized_title,
+        )
+        candidates = self.db.scalars(stmt).all()
+
+        high_confidence_match: Media | None = None
+        potential_duplicates: list[Media] = []
+
+        for candidate in candidates:
+            # If both have a release year and they match exactly, we merge
+            if candidate.release_year is not None and details.release_year is not None:
+                if candidate.release_year == details.release_year:
+                    high_confidence_match = candidate
+                    break
+                elif abs(candidate.release_year - details.release_year) <= 1:
+                    potential_duplicates.append(candidate)
+            else:
+                # If one of the release years is null, count as a potential duplicate candidate
+                potential_duplicates.append(candidate)
+
+        # Merge if high confidence match found
+        if high_confidence_match:
+            self.repo.add_external_id(
+                media_id=high_confidence_match.id,
+                provider=provider_clean,
+                external_id=external_id_clean,
+                provider_media_type=media_type.value,
+                confidence=0.9,
+            )
+            self.db.commit()
+            return high_confidence_match
+
+        # 4. If confidence is below threshold (no exact/high-confidence match),
+        # create a new record and flag duplicate candidate IDs in metadata.
+        metadata_json = details.metadata_json or {}
+        if potential_duplicates:
+            metadata_json["duplicate_candidates"] = [str(m.id) for m in potential_duplicates]
+
+        media = self.repo.create_media(
+            media_type=media_type,
+            canonical_title=details.title,
+            original_title=details.original_title,
+            description=details.description,
+            release_date=details.release_date,
+            release_year=details.release_year,
+            runtime_minutes=details.runtime_minutes,
+            primary_language=details.primary_language,
+            country_code=details.country_code,
+            poster_url=details.poster_url,
+            backdrop_url=details.backdrop_url,
+            popularity_score=details.popularity_score,
+            metadata_json=metadata_json,
+        )
+
+        # Link current provider ID
+        self.repo.add_external_id(
+            media_id=media.id,
+            provider=provider_clean,
+            external_id=external_id_clean,
+            provider_media_type=media_type.value,
+            confidence=1.0,
+        )
+
+        # Link IMDb ID if returned by provider
+        if details.imdb_id:
+            self.repo.add_external_id(
+                media_id=media.id,
+                provider="imdb",
+                external_id=details.imdb_id,
+                confidence=1.0,
+            )
+
+        # Add primary title
+        self.repo.add_title(
+            media_id=media.id,
+            title=details.title,
+            language=details.primary_language,
+            is_primary=True,
+        )
+
+        # Add alternate titles
+        for alt in details.alternate_titles:
+            self.repo.add_title(
+                media_id=media.id,
+                title=alt["title"],
+                language=alt.get("language"),
+                region=alt.get("region"),
+                is_primary=False,
+            )
+
+        # Add image URLs
+        for img in details.images:
+            self.repo.add_image(
+                media_id=media.id,
+                image_type=img["image_type"],
+                source=provider_clean,
+                external_url=img["url"],
+                width=img.get("width"),
+                height=img.get("height"),
+            )
+
+        # Map and associate genres
+        for g_name in details.genres:
+            genre = self.repo.get_or_create_genre(g_name)
+            self.repo.associate_genre(media, genre)
+
+        # Write audit log if potential duplicate candidates were flagged
+        if potential_duplicates:
+            try:
+                from app.repositories.audit_repository import AuditRepository
+                audit_repo = AuditRepository(self.db)
+                audit_repo.create_audit_log(
+                    action="media.duplicate_candidate",
+                    resource_type="media",
+                    resource_id=str(media.id),
+                    metadata={
+                        "candidate_ids": [str(m.id) for m in potential_duplicates],
+                        "reason": f"Fuzzy title match on '{normalized_title}' with different/near release year",
+                    },
+                    created_at=datetime.now(timezone.utc),
+                )
+            except Exception as e:
+                logger.exception("Failed to write duplicate candidate audit log: %s", e)
+
+        self.db.commit()
+        return media

@@ -5,6 +5,10 @@ from app.core.logging import configure_logging
 from app.core.middleware import request_id_middleware
 from app.routers import auth, users
 
+#! to run: uvicorn app.main:app --reload
+#! health check: http://localhost:8000/health
+#! docs: http://localhost:8000/docs
+#TODO: this docs must be inactive in prod.
 
 settings = get_settings()
 configure_logging(settings)

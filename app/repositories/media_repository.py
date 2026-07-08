@@ -22,8 +22,8 @@ class MediaRepository:
             select(Media)
             .join(MediaExternalId, Media.id == MediaExternalId.media_id)
             .where(
-                MediaExternalId.provider == provider,
-                MediaExternalId.external_id == external_id,
+                MediaExternalId.provider == provider.strip().lower(),
+                MediaExternalId.external_id == external_id.strip(),
             )
         )
         return self.db.scalar(stmt)

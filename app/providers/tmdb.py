@@ -139,16 +139,23 @@ class TMDBProviderAdapter(BaseProviderAdapter):
         request_hash = hashlib.sha256(serialized.encode("utf-8")).hexdigest()
 
         try:
+            from sqlalchemy.orm import sessionmaker
             from app.repositories.media_repository import MediaRepository
-            repo = MediaRepository(self.db)
-            repo.log_provider_request(
-                provider="tmdb",
-                endpoint=path,
-                request_hash=request_hash,
-                status_code=status_code,
-                duration_ms=duration_ms,
-                rate_limited=rate_limited,
-            )
+            SessionMaker = sessionmaker(bind=self.db.bind)
+            log_db = SessionMaker()
+            try:
+                repo = MediaRepository(log_db)
+                repo.log_provider_request(
+                    provider="tmdb",
+                    endpoint=path,
+                    request_hash=request_hash,
+                    status_code=status_code,
+                    duration_ms=duration_ms,
+                    rate_limited=rate_limited,
+                )
+                log_db.commit()
+            finally:
+                log_db.close()
         except Exception as e:
             logger.exception("Failed to write provider request log to database: %s", e)
 

@@ -21,6 +21,13 @@ class MediaService:
         self.settings = settings
         self.repo = MediaRepository(db)
 
+    def _get_db_provider(self, provider: str, media_type: MediaType) -> str:
+        prov = provider.strip().lower()
+        if prov == "tmdb":
+            return "tmdb_movie" if media_type == MediaType.MOVIE else "tmdb_tv"
+        return prov
+
+
     async def search_media(
         self,
         query: str,
@@ -115,12 +122,13 @@ class MediaService:
 
         # Add external results if they aren't already represented locally
         for ext in external_results:
+            db_provider = self._get_db_provider(ext.provider, ext.media_type)
             # Check if this external ID already mapped to a local item during the local search
-            if (ext.provider, ext.external_id) in seen_external_keys:
+            if (db_provider, ext.external_id) in seen_external_keys:
                 continue
 
             # Double check database for existing matches (that may not have appeared in local search)
-            existing_media = self.repo.get_by_external_id(ext.provider, ext.external_id)
+            existing_media = self.repo.get_by_external_id(db_provider, ext.external_id)
             if existing_media:
                 combined_responses.append(
                     MediaSearchResponse(
@@ -165,7 +173,7 @@ class MediaService:
                     is_persisted=False,
                 )
             )
-            seen_external_keys.add((ext.provider, ext.external_id))
+            seen_external_keys.add((db_provider, ext.external_id))
 
         return combined_responses[:limit]
 
@@ -177,9 +185,10 @@ class MediaService:
     ) -> Media:
         provider_clean = provider.strip().lower()
         external_id_clean = external_id.strip()
+        db_provider = self._get_db_provider(provider_clean, media_type)
 
         # 1. Exact external provider ID match wins
-        existing_media = self.repo.get_by_external_id(provider_clean, external_id_clean)
+        existing_media = self.repo.get_by_external_id(db_provider, external_id_clean)
         if existing_media:
             return existing_media
 
@@ -197,7 +206,7 @@ class MediaService:
                 # Add current external provider mapping to existing media
                 self.repo.add_external_id(
                     media_id=existing_by_imdb.id,
-                    provider=provider_clean,
+                    provider=db_provider,
                     external_id=external_id_clean,
                     provider_media_type=media_type.value,
                     confidence=1.0,
@@ -232,7 +241,7 @@ class MediaService:
         if high_confidence_match:
             self.repo.add_external_id(
                 media_id=high_confidence_match.id,
-                provider=provider_clean,
+                provider=db_provider,
                 external_id=external_id_clean,
                 provider_media_type=media_type.value,
                 confidence=0.9,
@@ -265,7 +274,7 @@ class MediaService:
         # Link current provider ID
         self.repo.add_external_id(
             media_id=media.id,
-            provider=provider_clean,
+            provider=db_provider,
             external_id=external_id_clean,
             provider_media_type=media_type.value,
             confidence=1.0,
@@ -303,7 +312,7 @@ class MediaService:
             self.repo.add_image(
                 media_id=media.id,
                 image_type=img["image_type"],
-                source=provider_clean,
+                source=db_provider,
                 external_url=img["url"],
                 width=img.get("width"),
                 height=img.get("height"),

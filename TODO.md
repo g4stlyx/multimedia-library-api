@@ -55,7 +55,6 @@
 - [x] Add duplicate candidate handling.
 - [x] Add tests for duplicate prevention.
 
-
 ## Phase 3 - Library and Social MVP
 
 - [ ] Create `user_media_entries` table.

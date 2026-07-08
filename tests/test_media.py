@@ -187,7 +187,7 @@ async def test_upsert_by_external_id_and_deduplication(db_session):
         # Verify it successfully added the TMDB external ID association
         ext_ids = db_session.query(MediaExternalId).filter_by(media_id=existing.id).all()
         providers = [e.provider for e in ext_ids]
-        assert "tmdb" in providers
+        assert "tmdb_movie" in providers
         assert "imdb" in providers
 
 

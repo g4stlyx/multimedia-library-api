@@ -57,19 +57,19 @@
 
 ## Phase 3 - Library and Social MVP
 
-- [ ] Create `user_media_entries` table.
-- [ ] Implement add/update/remove library entry.
-- [ ] Add unique active library constraint.
-- [ ] Create `reviews` table.
-- [ ] Implement create/update/delete review.
-- [ ] Enforce one active review per user/media.
-- [ ] Create `comments` table.
-- [ ] Implement review comments.
-- [ ] Create `lists` table.
-- [ ] Create `list_items` table.
-- [ ] Implement list CRUD.
-- [ ] Add soft delete support.
-- [ ] Add cross-user ownership tests.
+- [x] Create `user_media_entries` table.
+- [x] Implement add/update/remove library entry.
+- [x] Add unique active library constraint.
+- [x] Create `reviews` table.
+- [x] Implement create/update/delete review.
+- [x] Enforce one active review per user/media.
+- [x] Create `comments` table.
+- [x] Implement review comments.
+- [x] Create `lists` table.
+- [x] Create `list_items` table.
+- [x] Implement list CRUD.
+- [x] Add soft delete support.
+- [x] Add cross-user ownership tests.
 
 ## Phase 4 - Providers and Seeding
 

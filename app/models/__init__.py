@@ -18,6 +18,8 @@ from app.models.user import (
     UserCredential,
     UserRole,
 )
+from app.models.library import UserMediaEntry
+from app.models.social import Review, Comment, MediaList, ListItem
 
 __all__ = [
     "AuditLog",
@@ -37,5 +39,10 @@ __all__ = [
     "MediaTitle",
     "MediaType",
     "ProviderRequest",
+    "UserMediaEntry",
+    "Review",
+    "Comment",
+    "MediaList",
+    "ListItem",
 ]
 

@@ -515,6 +515,731 @@
           ]
         }
       ]
+    },
+    {
+      "name": "Library",
+      "item": [
+        {
+          "name": "Add to Library",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"media_id\": \"{{last_media_id}}\",\n  \"status\": \"PLANNED\",\n  \"rating_value\": 80,\n  \"notes_private\": \"Looks interesting\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/{{api_prefix}}/library",
+              "host": ["{{base_url}}"],
+              "path": ["{{api_prefix}}", "library"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 201', function () { pm.response.to.have.status(201); });",
+                  "const body = pm.response.json();",
+                  "if (body.id) pm.environment.set('last_library_entry_id', body.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List Library",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/{{api_prefix}}/library?status=PLANNED",
+              "host": ["{{base_url}}"],
+              "path": ["{{api_prefix}}", "library"],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "PLANNED"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update Library Entry",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"IN_PROGRESS\",\n  \"progress_value\": 10,\n  \"progress_total\": 100\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/{{api_prefix}}/library/{{last_library_entry_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["{{api_prefix}}", "library", "{{last_library_entry_id}}"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete Library Entry",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/{{api_prefix}}/library/{{last_library_entry_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["{{api_prefix}}", "library", "{{last_library_entry_id}}"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 204', function () { pm.response.to.have.status(204); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Reviews",
+      "item": [
+        {
+          "name": "Create Review",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"media_id\": \"{{last_media_id}}\",\n  \"rating_value\": 90,\n  \"body\": \"Great story and execution.\",\n  \"contains_spoilers\": false,\n  \"visibility\": \"public\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/{{api_prefix}}/reviews",
+              "host": ["{{base_url}}"],
+              "path": ["{{api_prefix}}", "reviews"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 201', function () { pm.response.to.have.status(201); });",
+                  "const body = pm.response.json();",
+                  "if (body.id) pm.environment.set('last_review_id', body.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List Reviews",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/{{api_prefix}}/reviews?media_id={{last_media_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["{{api_prefix}}", "reviews"],
+              "query": [
+                {
+                  "key": "media_id",
+                  "value": "{{last_media_id}}"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update Review",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rating_value\": 95,\n  \"body\": \"Actually, a true masterpiece!\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/{{api_prefix}}/reviews/{{last_review_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["{{api_prefix}}", "reviews", "{{last_review_id}}"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete Review",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/{{api_prefix}}/reviews/{{last_review_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["{{api_prefix}}", "reviews", "{{last_review_id}}"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 204', function () { pm.response.to.have.status(204); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Comments",
+      "item": [
+        {
+          "name": "Post Comment",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"target_type\": \"review\",\n  \"target_id\": \"{{last_review_id}}\",\n  \"body\": \"Awesome review!\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/{{api_prefix}}/comments",
+              "host": ["{{base_url}}"],
+              "path": ["{{api_prefix}}", "comments"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 201', function () { pm.response.to.have.status(201); });",
+                  "const body = pm.response.json();",
+                  "if (body.id) pm.environment.set('last_comment_id', body.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List Comments",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/{{api_prefix}}/comments?target_type=review&target_id={{last_review_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["{{api_prefix}}", "comments"],
+              "query": [
+                {
+                  "key": "target_type",
+                  "value": "review"
+                },
+                {
+                  "key": "target_id",
+                  "value": "{{last_review_id}}"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update Comment",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"body\": \"Awesome review! Completely agree with you.\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/{{api_prefix}}/comments/{{last_comment_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["{{api_prefix}}", "comments", "{{last_comment_id}}"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete Comment",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/{{api_prefix}}/comments/{{last_comment_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["{{api_prefix}}", "comments", "{{last_comment_id}}"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 204', function () { pm.response.to.have.status(204); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Lists",
+      "item": [
+        {
+          "name": "Create List",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Sci-Fi Masterpieces\",\n  \"description\": \"My absolute favorites.\",\n  \"visibility\": \"public\",\n  \"items\": [\n    {\n      \"media_id\": \"{{last_media_id}}\",\n      \"position\": 0,\n      \"note\": \"Mind-bending!\"\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/{{api_prefix}}/lists",
+              "host": ["{{base_url}}"],
+              "path": ["{{api_prefix}}", "lists"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 201', function () { pm.response.to.have.status(201); });",
+                  "const body = pm.response.json();",
+                  "if (body.id) pm.environment.set('last_list_id', body.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get List Details",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/{{api_prefix}}/lists/{{last_list_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["{{api_prefix}}", "lists", "{{last_list_id}}"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Add Item to List",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"media_id\": \"{{last_media_id}}\",\n  \"note\": \"Also great!\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/{{api_prefix}}/lists/{{last_list_id}}/items",
+              "host": ["{{base_url}}"],
+              "path": ["{{api_prefix}}", "lists", "{{last_list_id}}", "items"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 201', function () { pm.response.to.have.status(201); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Reorder List Items",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"media_ids\": [\"{{last_media_id}}\"]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/{{api_prefix}}/lists/{{last_list_id}}/items/reorder",
+              "host": ["{{base_url}}"],
+              "path": ["{{api_prefix}}", "lists", "{{last_list_id}}", "items", "reorder"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Remove Item from List",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/{{api_prefix}}/lists/{{last_list_id}}/items/{{last_media_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["{{api_prefix}}", "lists", "{{last_list_id}}", "items", "{{last_media_id}}"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 204', function () { pm.response.to.have.status(204); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete List",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/{{api_prefix}}/lists/{{last_list_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["{{api_prefix}}", "lists", "{{last_list_id}}"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 204', function () { pm.response.to.have.status(204); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
     }
   ]
 }

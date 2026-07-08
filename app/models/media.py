@@ -131,6 +131,21 @@ class Media(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         secondary="media_genres",
         back_populates="media",
     )
+    media_entries: Mapped[list[UserMediaEntry]] = relationship(
+        "UserMediaEntry",
+        back_populates="media",
+        cascade="all, delete-orphan",
+    )
+    reviews: Mapped[list[Review]] = relationship(
+        "Review",
+        back_populates="media",
+        cascade="all, delete-orphan",
+    )
+    list_items: Mapped[list[ListItem]] = relationship(
+        "ListItem",
+        back_populates="media",
+        cascade="all, delete-orphan",
+    )
 
 
 class MediaExternalId(UUIDPrimaryKeyMixin, TimestampMixin, Base):

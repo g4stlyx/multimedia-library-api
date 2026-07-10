@@ -40,6 +40,11 @@ class MediaPublic(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class MediaDetailPublic(MediaPublic):
+    average_rating: float | None = None
+    rating_count: int = 0
+
+
 class MediaSearchResponse(BaseModel):
     id: uuid.UUID | None = None  # None if not yet persisted locally
     media_type: MediaType

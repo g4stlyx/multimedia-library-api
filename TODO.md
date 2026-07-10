@@ -56,6 +56,8 @@
 - [x] Implement media upsert by external ID.
 - [x] Add duplicate candidate handling.
 - [x] Add tests for duplicate prevention.
+- [x] Add popular local catalog endpoint.
+- [x] Add provider-backed metadata refresh endpoint with throttling and audit logging.
 
 ## Phase 3 - Library and Social MVP
 

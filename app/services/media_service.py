@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import uuid
 from datetime import datetime, timezone
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -10,7 +11,7 @@ from app.core.normalization import normalize_title
 from app.models.media import Media, MediaType
 from app.providers.tmdb import TMDBProviderAdapter
 from app.repositories.media_repository import MediaRepository
-from app.schemas.media import MediaSearchResponse
+from app.schemas.media import MediaDetailPublic, MediaPublic, MediaSearchResponse
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +27,25 @@ class MediaService:
         if prov == "tmdb":
             return "tmdb_movie" if media_type == MediaType.MOVIE else "tmdb_tv"
         return prov
+
+    def list_popular(
+        self,
+        media_type: MediaType | None = None,
+        limit: int = 20,
+    ) -> list[Media]:
+        return self.repo.list_popular(media_type=media_type, limit=limit)
+
+    def get_media_details(self, media_id: uuid.UUID) -> MediaDetailPublic | None:
+        media = self.repo.get_by_id(media_id)
+        if not media or media.deleted_at is not None:
+            return None
+        average_rating, rating_count = self.repo.get_rating_aggregation(media.id)
+        media_data = MediaPublic.model_validate(media).model_dump()
+        return MediaDetailPublic(
+            **media_data,
+            average_rating=average_rating,
+            rating_count=rating_count,
+        )
 
 
     async def search_media(
@@ -343,3 +363,67 @@ class MediaService:
 
         self.db.commit()
         return media
+
+    async def refresh_media(
+        self,
+        media_id: uuid.UUID,
+        *,
+        actor_user_id: uuid.UUID,
+        request_id: str | None,
+    ) -> Media:
+        media = self.repo.get_by_id(media_id)
+        if not media or media.deleted_at is not None:
+            raise LookupError("Media not found")
+
+        now = datetime.now(timezone.utc)
+        last_synced_at = media.last_synced_at
+        if last_synced_at and last_synced_at.tzinfo is None:
+            last_synced_at = last_synced_at.replace(tzinfo=timezone.utc)
+        if last_synced_at and (now - last_synced_at).total_seconds() < 900:
+            raise RuntimeError("This media was refreshed recently. Please try again later.")
+
+        provider_id = next(
+            (
+                external_id
+                for external_id in media.external_ids
+                if external_id.provider in {"tmdb_movie", "tmdb_tv"}
+            ),
+            None,
+        )
+        if provider_id is None:
+            raise ValueError("No supported metadata provider is linked to this media")
+
+        tmdb = TMDBProviderAdapter(self.settings.tmdb_api_key, self.db)
+        details = await tmdb.get_details(provider_id.external_id, media.media_type)
+        refreshed = self.repo.update_from_provider(
+            media,
+            canonical_title=details.title,
+            normalized_title=normalize_title(details.title),
+            original_title=details.original_title,
+            description=details.description,
+            release_date=details.release_date,
+            release_year=details.release_year,
+            runtime_minutes=details.runtime_minutes,
+            primary_language=details.primary_language,
+            country_code=details.country_code,
+            poster_url=details.poster_url,
+            backdrop_url=details.backdrop_url,
+            popularity_score=details.popularity_score,
+            metadata_json=details.metadata_json or {},
+            last_synced_at=now,
+        )
+        refreshed.genres = [self.repo.get_or_create_genre(name) for name in details.genres]
+
+        from app.repositories.audit_repository import AuditRepository
+
+        AuditRepository(self.db).create_audit_log(
+            action="media.metadata_refreshed",
+            actor_user_id=actor_user_id,
+            resource_type="media",
+            resource_id=str(media.id),
+            request_id=request_id,
+            created_at=now,
+        )
+        self.db.commit()
+        self.db.refresh(refreshed)
+        return refreshed

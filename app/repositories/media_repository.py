@@ -2,12 +2,13 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime, timezone
-from sqlalchemy import select, case, exists
+from sqlalchemy import select, case, exists, func
 from sqlalchemy.orm import Session
 
 from app.core.normalization import normalize_title
 from app.models.media import Genre, Media, MediaExternalId, MediaImage, MediaTitle, MediaType
 from app.models.provider import ProviderRequest
+from app.models.social import Review
 
 
 class MediaRepository:
@@ -70,6 +71,38 @@ class MediaRepository:
         )
 
         return list(self.db.scalars(stmt).all())
+
+    def list_popular(
+        self,
+        media_type: MediaType | None = None,
+        limit: int = 20,
+    ) -> list[Media]:
+        stmt = select(Media).where(Media.deleted_at.is_(None))
+        if media_type:
+            stmt = stmt.where(Media.media_type == media_type)
+        stmt = stmt.order_by(
+            Media.popularity_score.desc().nullslast(),
+            Media.updated_at.desc(),
+        ).limit(limit)
+        return list(self.db.scalars(stmt).all())
+
+    def get_rating_aggregation(self, media_id: uuid.UUID) -> tuple[float | None, int]:
+        average, count = self.db.execute(
+            select(func.avg(Review.rating_value), func.count(Review.id)).where(
+                Review.media_id == media_id,
+                Review.deleted_at.is_(None),
+                Review.visibility == "public",
+                Review.rating_value.is_not(None),
+            )
+        ).one()
+        return (float(average) if average is not None else None, int(count or 0))
+
+    def update_from_provider(self, media: Media, **values) -> Media:
+        for key, value in values.items():
+            if hasattr(media, key):
+                setattr(media, key, value)
+        self.db.flush()
+        return media
 
 
     def create_media(self, media_type: MediaType, canonical_title: str, **kwargs) -> Media:

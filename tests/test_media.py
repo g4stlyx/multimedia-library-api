@@ -69,6 +69,18 @@ def test_media_repository_basics(db_session):
     assert fetched.id == media.id
 
 
+def test_popular_media_is_public_and_sorted(db_session, client):
+    repo = MediaRepository(db_session)
+    lower = repo.create_media(media_type=MediaType.MOVIE, canonical_title="Lower", popularity_score=10)
+    higher = repo.create_media(media_type=MediaType.MOVIE, canonical_title="Higher", popularity_score=100)
+    db_session.commit()
+
+    response = client.get("/api/v1/media/popular?type=MOVIE")
+
+    assert response.status_code == 200
+    assert [item["id"] for item in response.json()[:2]] == [str(higher.id), str(lower.id)]
+
+
 @pytest.mark.anyio
 async def test_search_local_first_and_fallback(db_session, client):
     settings = get_settings()
@@ -189,6 +201,38 @@ async def test_upsert_by_external_id_and_deduplication(db_session):
         providers = [e.provider for e in ext_ids]
         assert "tmdb_movie" in providers
         assert "imdb" in providers
+
+
+@pytest.mark.anyio
+async def test_refresh_media_updates_linked_tmdb_record(db_session):
+    settings = get_settings()
+    repo = MediaRepository(db_session)
+    service = MediaService(db_session, settings)
+    media = repo.create_media(media_type=MediaType.MOVIE, canonical_title="Old title")
+    repo.add_external_id(media.id, "tmdb_movie", "603", provider_media_type="movie")
+    db_session.commit()
+    details = MagicMock(
+        title="The Matrix",
+        original_title="The Matrix",
+        description="Updated metadata.",
+        release_date=None,
+        release_year=1999,
+        runtime_minutes=136,
+        primary_language="en",
+        country_code="US",
+        poster_url="https://image.tmdb.org/t/p/w500/matrix.jpg",
+        backdrop_url="https://image.tmdb.org/t/p/original/matrix.jpg",
+        popularity_score=95.0,
+        metadata_json={"id": 603},
+        genres=["Science Fiction"],
+    )
+
+    with patch("app.providers.tmdb.TMDBProviderAdapter.get_details", return_value=details):
+        refreshed = await service.refresh_media(media.id, actor_user_id=uuid.uuid4(), request_id="test-request")
+
+    assert refreshed.canonical_title == "The Matrix"
+    assert refreshed.last_synced_at is not None
+    assert refreshed.genres[0].name == "Science Fiction"
 
 
 @pytest.mark.anyio

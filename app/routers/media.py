@@ -6,16 +6,27 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
+from app.core.rate_limit import rate_limit
+from app.core.request_context import request_id_context
 from app.core.permissions import get_current_active_user
 from app.database import get_db
 from app.models.media import MediaType
 from app.models.user import User
-from app.schemas.media import MediaExternalAddRequest, MediaPublic, MediaSearchResponse
+from app.schemas.media import MediaDetailPublic, MediaExternalAddRequest, MediaPublic, MediaSearchResponse
 from app.services.media_service import MediaService
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/media", tags=["media"])
+
+
+@router.get("/popular", response_model=list[MediaPublic])
+def list_popular_media(
+    type: MediaType | None = Query(None, description="Optional media type filter"),
+    limit: int = Query(12, ge=1, le=50),
+    db: Session = Depends(get_db),
+) -> list[MediaPublic]:
+    return MediaService(db, get_settings()).list_popular(media_type=type, limit=limit)
 
 
 @router.get("/search", response_model=list[MediaSearchResponse])
@@ -37,21 +48,45 @@ async def search_media(
     )
 
 
-@router.get("/{media_id}", response_model=MediaPublic)
+@router.get("/{media_id}", response_model=MediaDetailPublic)
 def get_media_details(
     media_id: uuid.UUID,
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
-) -> MediaPublic:
+) -> MediaDetailPublic:
     settings = get_settings()
     service = MediaService(db, settings)
-    media = service.repo.get_by_id(media_id)
+    media = service.get_media_details(media_id)
     if not media:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Media not found",
         )
     return media
+
+
+@router.post(
+    "/{media_id}/refresh",
+    response_model=MediaPublic,
+    dependencies=[Depends(rate_limit("media:refresh", limit=20, window_seconds=300))],
+)
+async def refresh_media(
+    media_id: uuid.UUID,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+) -> MediaPublic:
+    try:
+        return await MediaService(db, get_settings()).refresh_media(
+            media_id,
+            actor_user_id=current_user.id,
+            request_id=request_id_context.get(),
+        )
+    except LookupError as error:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from None
+    except RuntimeError as error:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(error)) from None
+    except ValueError as error:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(error)) from None
 
 
 @router.post("/external/add", response_model=MediaPublic)

@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     app_name: str = "Project W API"
     app_env: Literal["local", "test", "staging", "production"] = "local"
     app_base_url: str = "http://localhost:8000"
+    web_base_url: str = "http://localhost:3000"
     api_prefix: str = "/api/v1"
     log_level: str = "INFO"
 

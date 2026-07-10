@@ -38,7 +38,7 @@ class EmailService:
 
     def send_email_verification(self, *, to_email: str, token: str) -> EmailSendResult:
         verify_url = self._build_url(
-            path=f"{self.settings.api_prefix}/auth/verify-email",
+            path="/auth/verify-email",
             token=token,
         )
         text = (
@@ -56,7 +56,7 @@ class EmailService:
 
     def send_password_reset(self, *, to_email: str, token: str) -> EmailSendResult:
         reset_url = self._build_url(
-            path=f"{self.settings.api_prefix}/auth/password-reset/confirm",
+            path="/auth/password-reset/confirm",
             token=token,
         )
         text = (
@@ -106,7 +106,7 @@ class EmailService:
         return EmailSendResult(sent=True)
 
     def _build_url(self, *, path: str, token: str) -> str:
-        base_url = self.settings.app_base_url.rstrip("/")
+        base_url = self.settings.web_base_url.rstrip("/")
         normalized_path = path if path.startswith("/") else f"/{path}"
         return f"{base_url}{normalized_path}?{urlencode({'token': token})}"
 

@@ -34,6 +34,8 @@
 - [x] Add audit log model.
 - [x] Add basic Redis-backed rate limiting.
 - [x] Add ownership/permission helpers.
+- [x] Add self-only profile update endpoint.
+- [x] Add current-password-verified password change with session revocation.
 
 ## Phase 2 - Media Catalog
 

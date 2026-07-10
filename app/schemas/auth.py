@@ -79,14 +79,28 @@ class PasswordResetConfirmRequest(BaseModel):
     new_password: str = Field(min_length=12, max_length=1024)
 
 
+class ChangePasswordRequest(BaseModel):
+    current_password: str = Field(min_length=1, max_length=1024)
+    new_password: str = Field(min_length=12, max_length=1024)
+
+
+class UpdateProfileRequest(BaseModel):
+    display_name: str | None = Field(default=None, max_length=80)
+
+    @field_validator("display_name")
+    @classmethod
+    def validate_display_name(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        value = value.strip()
+        return value or None
+
+
 class AuthTokensResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
     access_expires_at: datetime
     access_expires_in: int
-    refresh_token: str
-    refresh_expires_at: datetime
-    refresh_expires_in: int
     user: UserPublic
     email_verification_token: str | None = None
 

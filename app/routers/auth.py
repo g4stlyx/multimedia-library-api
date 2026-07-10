@@ -14,6 +14,7 @@ from app.models.user import User
 from app.core.permissions import get_current_active_user
 from app.schemas.auth import (
     AuthTokensResponse,
+    ChangePasswordRequest,
     LoginRequest,
     LogoutRequest,
     MessageResponse,
@@ -82,9 +83,6 @@ def _token_response(result: AuthResult) -> AuthTokensResponse:
         access_token=result.tokens.access_token,
         access_expires_at=result.tokens.access_expires_at,
         access_expires_in=max(int((result.tokens.access_expires_at - now).total_seconds()), 0),
-        refresh_token=result.tokens.refresh_token,
-        refresh_expires_at=result.tokens.refresh_expires_at,
-        refresh_expires_in=max(int((result.tokens.refresh_expires_at - now).total_seconds()), 0),
         user=result.user,
         email_verification_token=result.email_verification_token,
     )
@@ -354,3 +352,26 @@ def confirm_password_reset(
         context=_context_from_request(request, settings),
     )
     return MessageResponse(message="Password reset completed")
+
+
+@router.post(
+    "/password/change",
+    response_model=MessageResponse,
+    dependencies=[Depends(rate_limit("auth:password_change", limit=10, window_seconds=300))],
+)
+def change_password(
+    payload: ChangePasswordRequest,
+    request: Request,
+    response: Response,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> MessageResponse:
+    AuthService(db, settings).change_password(
+        user=current_user,
+        current_password=payload.current_password,
+        new_password=payload.new_password,
+        context=_context_from_request(request, settings),
+    )
+    _clear_refresh_cookie(response, settings)
+    return MessageResponse(message="Password changed. Please sign in again.")

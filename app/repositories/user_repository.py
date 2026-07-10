@@ -87,3 +87,8 @@ class UserRepository:
         self.db.add(credentials)
         self.db.flush()
         return credentials
+
+    def update_display_name(self, *, user: User, display_name: str | None) -> User:
+        user.display_name = display_name.strip() if display_name else None
+        self.db.flush()
+        return user

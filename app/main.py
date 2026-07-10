@@ -5,7 +5,7 @@ from app.core.logging import configure_logging
 from app.core.middleware import request_id_middleware
 from app.routers import auth, media, users, library, reviews, comments, lists
 
-# (Set-ExecutionPolicy -Scope Process -ExecutionPolicy RemoteSigned) ; (& c:\Users\sefa_\Desktop\project-w-api\venv\Scripts\Activate.ps1)
+# (Set-ExecutionPolicy -Scope Process -ExecutionPolicy RemoteSigned) ; (& c:\Users\sefa_\Desktop\multimedia-library-app\multimedia-library-api\venv\Scripts\Activate.ps1)
 # alembic upgrade head
 
 #! to run: uvicorn app.main:app --reload

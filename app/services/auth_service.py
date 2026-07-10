@@ -526,6 +526,48 @@ class AuthService:
         )
         self.db.commit()
 
+    def change_password(
+        self,
+        *,
+        user: User,
+        current_password: str,
+        new_password: str,
+        context: AuthRequestContext,
+    ) -> None:
+        now = utcnow()
+        if user.credentials is None or not verify_password(
+            current_password, user.credentials.password_hash, self.settings
+        ):
+            self._log_auth_error(
+                "invalid_password_change_attempt",
+                now=now,
+                context=context,
+                user_id=user.id,
+            )
+            self.db.commit()
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Current password is incorrect",
+            )
+
+        user.credentials.password_hash = hash_password(new_password, self.settings)
+        user.credentials.password_hash_params = password_hash_params()
+        user.credentials.password_changed_at = now
+        user.credentials.failed_login_count = 0
+        user.credentials.locked_until = None
+        self.refresh_tokens.revoke_all_for_user(user.id, now)
+        self.audit.create_audit_log(
+            action="auth.password_changed",
+            actor_user_id=user.id,
+            resource_type="user",
+            resource_id=str(user.id),
+            created_at=now,
+            ip_address=context.ip_address,
+            user_agent_hash=context.user_agent_hash,
+            request_id=context.request_id,
+        )
+        self.db.commit()
+
     def _issue_token_pair(
         self,
         *,

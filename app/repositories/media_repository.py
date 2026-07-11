@@ -124,6 +124,8 @@ class MediaRepository:
         external_id: str,
         provider_media_type: str | None = None,
         external_url: str | None = None,
+        attribution_text: str | None = None,
+        attribution_url: str | None = None,
         confidence: float = 1.0,
     ) -> MediaExternalId:
         ext_id = MediaExternalId(
@@ -132,6 +134,8 @@ class MediaRepository:
             provider_media_type=provider_media_type.strip().lower() if provider_media_type else None,
             external_id=external_id.strip(),
             external_url=external_url.strip() if external_url else None,
+            attribution_text=attribution_text.strip() if attribution_text else None,
+            attribution_url=attribution_url.strip() if attribution_url else None,
             confidence=confidence,
         )
         self.db.add(ext_id)

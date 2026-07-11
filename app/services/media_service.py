@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import uuid
+import asyncio
 from datetime import datetime, timezone
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -9,9 +10,11 @@ from sqlalchemy.orm import Session
 from app.core.config import Settings
 from app.core.normalization import normalize_title
 from app.models.media import Media, MediaType
-from app.providers.tmdb import TMDBProviderAdapter
+from app.providers.base import ProviderSearchResult
+from app.providers.http import ProviderError
+from app.providers.registry import ProviderRegistry
 from app.repositories.media_repository import MediaRepository
-from app.schemas.media import MediaDetailPublic, MediaPublic, MediaSearchResponse
+from app.schemas.media import MediaDetailPublic, MediaPublic, MediaSearchResponse, ProviderAttributionPublic
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +30,9 @@ class MediaService:
         if prov == "tmdb":
             return "tmdb_movie" if media_type == MediaType.MOVIE else "tmdb_tv"
         return prov
+
+    def _registry(self) -> ProviderRegistry:
+        return ProviderRegistry(self.settings, self.db)
 
     def list_popular(
         self,
@@ -45,6 +51,16 @@ class MediaService:
             **media_data,
             average_rating=average_rating,
             rating_count=rating_count,
+            provider_attributions=[
+                ProviderAttributionPublic(
+                    provider=external_id.provider,
+                    external_url=external_id.external_url,
+                    attribution_text=external_id.attribution_text,
+                    attribution_url=external_id.attribution_url,
+                )
+                for external_id in media.external_ids
+                if external_id.attribution_text or external_id.attribution_url
+            ],
         )
 
 
@@ -94,22 +110,18 @@ class MediaService:
                 for m in local_results
             ]
 
-        # 2. Local miss/sparse results -> Query TMDB provider
-        tmdb_adapter = TMDBProviderAdapter(self.settings.tmdb_api_key, self.db)
-        external_results = []
-
-        if media_type in (MediaType.MOVIE, MediaType.SERIES, None):
-            # If media_type is None, we search both movies and series on TMDB
-            types_to_search = (
-                [media_type] if media_type else [MediaType.MOVIE, MediaType.SERIES]
-            )
-            for m_type in types_to_search:
-                results = await tmdb_adapter.search(
-                    query=query,
-                    media_type=m_type,
-                    limit=limit,
-                )
-                external_results.extend(results)
+        # 2. Local miss/sparse results -> query only providers for the requested media type.
+        # An untyped search remains movie/series-first to avoid fan-out to every provider.
+        external_results: list[ProviderSearchResult] = []
+        types_to_search = [media_type] if media_type else [MediaType.MOVIE, MediaType.SERIES]
+        searches = [adapter.search(query, target_type, limit) for target_type in types_to_search for adapter in self._registry().providers_for_search(target_type)]
+        if searches:
+            provider_responses = await asyncio.gather(*searches, return_exceptions=True)
+            for response in provider_responses:
+                if isinstance(response, Exception):
+                    logger.warning("provider_search_failed", exc_info=response)
+                else:
+                    external_results.extend(response)
 
         # Merge local and external results
         combined_responses: list[MediaSearchResponse] = []
@@ -190,6 +202,9 @@ class MediaService:
                     popularity_score=ext.popularity_score,
                     provider=ext.provider,
                     external_id=ext.external_id,
+                    external_url=ext.external_url,
+                    attribution_text=ext.attribution_text,
+                    attribution_url=ext.attribution_url,
                     is_persisted=False,
                 )
             )
@@ -212,27 +227,26 @@ class MediaService:
         if existing_media:
             return existing_media
 
-        # Fetch detailed metadata from external API (TMDB supported)
-        if provider_clean == "tmdb":
-            tmdb_adapter = TMDBProviderAdapter(self.settings.tmdb_api_key, self.db)
-            details = await tmdb_adapter.get_details(external_id_clean, media_type)
-        else:
-            raise ValueError(f"Provider '{provider}' is not supported in this phase")
+        # Fetch detailed metadata through the provider registry, never trusting client supplied fields.
+        try:
+            details = await self._registry().get(provider_clean).get_details(external_id_clean, media_type)
+        except ProviderError as error:
+            raise ValueError(str(error)) from error
 
         # 2. Strong cross-provider ID match wins (e.g. IMDb ID mapping)
+        strong_ids = list(details.additional_external_ids)
         if details.imdb_id:
-            existing_by_imdb = self.repo.get_by_imdb_id(details.imdb_id)
-            if existing_by_imdb:
-                # Add current external provider mapping to existing media
+            strong_ids.append({"provider": "imdb", "external_id": details.imdb_id})
+        for strong_id in strong_ids:
+            existing = self.repo.get_by_external_id(strong_id["provider"], strong_id["external_id"])
+            if existing:
                 self.repo.add_external_id(
-                    media_id=existing_by_imdb.id,
-                    provider=db_provider,
-                    external_id=external_id_clean,
-                    provider_media_type=media_type.value,
-                    confidence=1.0,
+                    media_id=existing.id, provider=db_provider, external_id=external_id_clean,
+                    provider_media_type=media_type.value, external_url=details.external_url,
+                    attribution_text=details.attribution_text, attribution_url=details.attribution_url, confidence=1.0,
                 )
                 self.db.commit()
-                return existing_by_imdb
+                return existing
 
         # 3. Fuzzy match by normalized title and media type
         normalized_title = normalize_title(details.title)
@@ -264,6 +278,9 @@ class MediaService:
                 provider=db_provider,
                 external_id=external_id_clean,
                 provider_media_type=media_type.value,
+                external_url=details.external_url,
+                attribution_text=details.attribution_text,
+                attribution_url=details.attribution_url,
                 confidence=0.9,
             )
             self.db.commit()
@@ -297,17 +314,19 @@ class MediaService:
             provider=db_provider,
             external_id=external_id_clean,
             provider_media_type=media_type.value,
+            external_url=details.external_url,
+            attribution_text=details.attribution_text,
+            attribution_url=details.attribution_url,
             confidence=1.0,
         )
 
-        # Link IMDb ID if returned by provider
-        if details.imdb_id:
-            self.repo.add_external_id(
-                media_id=media.id,
-                provider="imdb",
-                external_id=details.imdb_id,
-                confidence=1.0,
-            )
+        # Link strong cross-provider identifiers (IMDb, ISBN, ISRC) for future deduplication.
+        for strong_id in strong_ids:
+            if not self.repo.get_by_external_id(strong_id["provider"], strong_id["external_id"]):
+                self.repo.add_external_id(
+                    media_id=media.id, provider=strong_id["provider"], external_id=strong_id["external_id"],
+                    external_url=strong_id.get("external_url"), confidence=1.0,
+                )
 
         # Add primary title
         self.repo.add_title(
@@ -382,19 +401,15 @@ class MediaService:
         if last_synced_at and (now - last_synced_at).total_seconds() < 900:
             raise RuntimeError("This media was refreshed recently. Please try again later.")
 
-        provider_id = next(
-            (
-                external_id
-                for external_id in media.external_ids
-                if external_id.provider in {"tmdb_movie", "tmdb_tv"}
-            ),
-            None,
-        )
+        provider_id = next((external_id for external_id in media.external_ids if external_id.provider in {"tmdb_movie", "tmdb_tv", "rawg", "google_books", "open_library", "spotify"}), None)
         if provider_id is None:
             raise ValueError("No supported metadata provider is linked to this media")
 
-        tmdb = TMDBProviderAdapter(self.settings.tmdb_api_key, self.db)
-        details = await tmdb.get_details(provider_id.external_id, media.media_type)
+        provider_name = "tmdb" if provider_id.provider in {"tmdb_movie", "tmdb_tv"} else provider_id.provider
+        try:
+            details = await self._registry().get(provider_name).get_details(provider_id.external_id, media.media_type)
+        except ProviderError as error:
+            raise ValueError("Metadata provider refresh failed") from error
         refreshed = self.repo.update_from_provider(
             media,
             canonical_title=details.title,

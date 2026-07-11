@@ -10,22 +10,10 @@ import requests
 from sqlalchemy.orm import Session
 
 from app.models.media import MediaType
-from app.providers.base import BaseProviderAdapter, ProviderMediaDetails, ProviderSearchResult
+from app.providers.base import BaseProviderAdapter, ProviderMediaDetails, ProviderSearchResult, ProviderSeedPage
+from app.providers.http import ProviderError, ProviderRateController, ProviderRateLimitError
 
 logger = logging.getLogger(__name__)
-
-
-class ProviderError(Exception):
-    """Generic error for external providers."""
-    pass
-
-
-class ProviderRateLimitError(ProviderError):
-    """Exception raised when a provider returns a 429 rate limit."""
-    def __init__(self, provider: str, retry_after: int | None = None) -> None:
-        self.provider = provider
-        self.retry_after = retry_after
-        super().__init__(f"Provider {provider} rate limited. Retry after {retry_after}s.")
 
 
 def parse_date(date_str: str | None) -> date | None:
@@ -79,13 +67,17 @@ class TMDBProviderAdapter(BaseProviderAdapter):
         response = None
 
         try:
-            response = requests.request(
-                method=method,
-                url=endpoint,
-                headers=headers,
-                params=final_params,
-                timeout=10,
-            )
+            for attempt in range(3):
+                ProviderRateController.wait_for_turn("tmdb", 20.0)
+                response = requests.request(
+                    method=method, url=endpoint, headers=headers, params=final_params, timeout=10,
+                )
+                if response.status_code != 429 or attempt == 2:
+                    break
+                retry_after_raw = response.headers.get("Retry-After")
+                retry_after = int(retry_after_raw) if retry_after_raw and retry_after_raw.isdigit() else min(2 ** (attempt + 1), 30)
+                time.sleep(retry_after)
+            assert response is not None
             status_code = response.status_code
             duration_ms = int((time.perf_counter() - start_time) * 1000)
 
@@ -225,6 +217,9 @@ class TMDBProviderAdapter(BaseProviderAdapter):
                     poster_url=f"{self.IMAGE_BASE_URL}/w500{poster_path}" if poster_path else None,
                     backdrop_url=f"{self.IMAGE_BASE_URL}/original{backdrop_path}" if backdrop_path else None,
                     popularity_score=item.get("popularity"),
+                    external_url=f"https://www.themoviedb.org/{'movie' if media_type == MediaType.MOVIE else 'tv'}/{external_id}",
+                    attribution_text="Data provided by TMDB",
+                    attribution_url="https://www.themoviedb.org/",
                     metadata_json=item,
                 )
             )
@@ -347,9 +342,47 @@ class TMDBProviderAdapter(BaseProviderAdapter):
             poster_url=f"{self.IMAGE_BASE_URL}/w500{poster_path}" if poster_path else None,
             backdrop_url=f"{self.IMAGE_BASE_URL}/original{backdrop_path}" if backdrop_path else None,
             popularity_score=data.get("popularity"),
+            external_url=f"https://www.themoviedb.org/{'movie' if media_type == MediaType.MOVIE else 'tv'}/{external_id}",
+            attribution_text="Data provided by TMDB",
+            attribution_url="https://www.themoviedb.org/",
             imdb_id=imdb_id,
             genres=genres,
             alternate_titles=alternate_titles,
             images=images,
             metadata_json=data,
         )
+
+    async def get_seed_page(
+        self,
+        *,
+        seed_kind: str,
+        media_type: MediaType,
+        cursor: str | None = None,
+        limit: int = 20,
+    ) -> ProviderSeedPage:
+        if not self.api_key:
+            raise ProviderError("TMDB API Key is not set")
+        paths = {
+            (MediaType.MOVIE, "popular"): "/movie/popular",
+            (MediaType.MOVIE, "top_rated"): "/movie/top_rated",
+            (MediaType.SERIES, "popular"): "/tv/popular",
+            (MediaType.SERIES, "top_rated"): "/tv/top_rated",
+        }
+        try:
+            path = paths[(media_type, seed_kind)]
+        except KeyError as error:
+            raise ProviderError(f"Unsupported TMDB seed: {media_type.value}/{seed_kind}") from error
+        page = max(int(cursor or "1"), 1)
+        data = (await asyncio.to_thread(self._execute_request, "GET", path, {"page": page})).json()
+        results: list[ProviderSearchResult] = []
+        for item in data.get("results", [])[:limit]:
+            external_id = item.get("id")
+            if external_id is None:
+                continue
+            title = item.get("title") if media_type == MediaType.MOVIE else item.get("name")
+            release = item.get("release_date") if media_type == MediaType.MOVIE else item.get("first_air_date")
+            if not title:
+                continue
+            poster_path, backdrop_path = item.get("poster_path"), item.get("backdrop_path")
+            results.append(ProviderSearchResult(provider="tmdb", external_id=str(external_id), media_type=media_type, title=title, original_title=item.get("original_title") if media_type == MediaType.MOVIE else item.get("original_name"), description=item.get("overview"), release_date=parse_date(release), release_year=extract_year(release), primary_language=item.get("original_language"), poster_url=f"{self.IMAGE_BASE_URL}/w500{poster_path}" if poster_path else None, backdrop_url=f"{self.IMAGE_BASE_URL}/original{backdrop_path}" if backdrop_path else None, popularity_score=item.get("popularity"), external_url=f"https://www.themoviedb.org/{'movie' if media_type == MediaType.MOVIE else 'tv'}/{external_id}", attribution_text="Data provided by TMDB", attribution_url="https://www.themoviedb.org/", metadata_json=item))
+        return ProviderSeedPage(provider="tmdb", media_type=media_type, seed_kind=seed_kind, cursor=str(page), next_cursor=str(page + 1) if page < int(data.get("total_pages", 0)) else None, results=results)

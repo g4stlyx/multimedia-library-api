@@ -168,6 +168,8 @@ class MediaExternalId(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     provider_media_type: Mapped[str | None] = mapped_column(String(50), nullable=True)
     external_id: Mapped[str] = mapped_column(String(255), nullable=False)
     external_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
+    attribution_text: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    attribution_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
     confidence: Mapped[float] = mapped_column(Float, default=1.0, nullable=False)
 
     # Relationships

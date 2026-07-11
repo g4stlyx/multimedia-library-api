@@ -77,21 +77,21 @@
 
 ## Phase 4 - Providers and Seeding
 
-- [ ] Choose primary game provider for MVP.
-- [ ] Implement RAWG or IGDB adapter.
-- [ ] Implement Google Books adapter.
-- [ ] Implement Open Library adapter.
-- [ ] Implement Spotify adapter.
-- [ ] Add provider-specific rate limits.
-- [ ] Add provider backoff on `429`.
-- [ ] Create seed run tables.
-- [ ] Create idempotent seed worker.
-- [ ] Seed TMDB movies.
-- [ ] Seed TMDB series.
-- [ ] Seed games within provider limits.
-- [ ] Seed books from curated/open sources.
-- [ ] Keep music mostly on-demand.
-- [ ] Add provider attribution fields.
+- [x] Choose RAWG as the primary MVP game provider (commercial terms must be revalidated before launch).
+- [x] Implement RAWG adapter.
+- [x] Implement Google Books adapter.
+- [x] Implement Open Library adapter.
+- [x] Implement Spotify adapter.
+- [x] Add provider-specific rate limits.
+- [x] Add provider backoff on `429`.
+- [x] Create seed run tables.
+- [x] Create idempotent seed worker.
+- [x] Add TMDB movie seed pages.
+- [x] Add TMDB series seed pages.
+- [x] Add RAWG game seed pages within provider limits.
+- [x] Add Google Books/Open Library curated seed pages.
+- [x] Keep Spotify music on-demand only.
+- [x] Add provider attribution fields.
 
 ## Phase 5 - Uploads and R2
 

@@ -10,6 +10,7 @@ from app.models.media import (
     MediaType,
 )
 from app.models.provider import ProviderRequest
+from app.models.seed import ProviderSnapshot, SeedItem, SeedItemStatus, SeedRun, SeedRunStatus
 from app.models.user import (
     EmailVerificationToken,
     PasswordResetToken,
@@ -39,10 +40,14 @@ __all__ = [
     "MediaTitle",
     "MediaType",
     "ProviderRequest",
+    "ProviderSnapshot",
+    "SeedItem",
+    "SeedItemStatus",
+    "SeedRun",
+    "SeedRunStatus",
     "UserMediaEntry",
     "Review",
     "Comment",
     "MediaList",
     "ListItem",
 ]
-

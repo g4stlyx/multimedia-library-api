@@ -44,6 +44,15 @@ class Settings(BaseSettings):
     trust_cloudflare_headers: bool = False
 
     tmdb_api_key: str | None = None
+    rawg_api_key: str | None = None
+    google_books_api_key: str | None = None
+    open_library_user_agent: str | None = None
+    open_library_contact_email: str | None = None
+    spotify_client_id: str | None = None
+    spotify_client_secret: str | None = None
+
+    provider_timeout_seconds: int = 10
+    provider_max_retries: int = 2
 
 
     model_config = SettingsConfigDict(
@@ -69,6 +78,8 @@ class Settings(BaseSettings):
         "password_max_length",
         "mail_port",
         "mail_timeout_seconds",
+        "provider_timeout_seconds",
+        "provider_max_retries",
     )
     @classmethod
     def validate_positive_int(cls, value: int) -> int:

@@ -119,3 +119,17 @@ To run with verbose output:
 ```bash
 pytest -v
 ```
+
+---
+
+## Provider seeding
+
+Providers are configured through `.env`; no provider secret is logged. Run seed pages from a dedicated worker or scheduler, never from an API request:
+
+```bash
+python -m scripts.run_seed --provider tmdb --media-type MOVIE --seed-kind popular --cursor 1 --limit 2
+python -m scripts.run_seed --provider rawg --media-type GAME --seed-kind popular --cursor 1 --limit 2
+python -m scripts.run_seed --provider open_library --media-type BOOK --seed-kind classics --cursor 1 --limit 2
+```
+
+Seed pages are idempotent by provider, media type, seed kind, and cursor. Spotify deliberately has no seed command and is used only for on-demand album/track search.

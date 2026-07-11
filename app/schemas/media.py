@@ -40,9 +40,17 @@ class MediaPublic(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class ProviderAttributionPublic(BaseModel):
+    provider: str
+    external_url: str | None = None
+    attribution_text: str | None = None
+    attribution_url: str | None = None
+
+
 class MediaDetailPublic(MediaPublic):
     average_rating: float | None = None
     rating_count: int = 0
+    provider_attributions: list[ProviderAttributionPublic] = Field(default_factory=list)
 
 
 class MediaSearchResponse(BaseModel):
@@ -62,6 +70,9 @@ class MediaSearchResponse(BaseModel):
     popularity_score: float | None = None
     provider: str | None = None  # Provider source (e.g. 'tmdb') if external
     external_id: str | None = None  # Provider external ID if external
+    external_url: str | None = None
+    attribution_text: str | None = None
+    attribution_url: str | None = None
     is_persisted: bool = False
 
     model_config = {"from_attributes": True}

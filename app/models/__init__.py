@@ -11,6 +11,7 @@ from app.models.media import (
 )
 from app.models.provider import ProviderRequest
 from app.models.seed import ProviderSnapshot, SeedItem, SeedItemStatus, SeedRun, SeedRunStatus
+from app.models.upload import Upload, UploadStatus
 from app.models.user import (
     EmailVerificationToken,
     PasswordResetToken,
@@ -46,6 +47,8 @@ __all__ = [
     "SeedRun",
     "SeedRunStatus",
     "UserMediaEntry",
+    "Upload",
+    "UploadStatus",
     "Review",
     "Comment",
     "MediaList",

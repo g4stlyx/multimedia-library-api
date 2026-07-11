@@ -54,6 +54,16 @@ class Settings(BaseSettings):
     provider_timeout_seconds: int = 10
     provider_max_retries: int = 2
 
+    cloudflare_r2_account_id: str | None = None
+    cloudflare_r2_access_key_id: str | None = None
+    cloudflare_r2_secret_access_key: str | None = None
+    cloudflare_r2_bucket: str | None = None
+    cloudflare_r2_public_base_url: str | None = None
+
+    profile_image_max_bytes: int = 5 * 1024 * 1024
+    profile_image_max_dimension: int = 4096
+    profile_image_max_pixels: int = 16_000_000
+
 
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -80,6 +90,9 @@ class Settings(BaseSettings):
         "mail_timeout_seconds",
         "provider_timeout_seconds",
         "provider_max_retries",
+        "profile_image_max_bytes",
+        "profile_image_max_dimension",
+        "profile_image_max_pixels",
     )
     @classmethod
     def validate_positive_int(cls, value: int) -> int:

@@ -21,6 +21,7 @@ class UserPublic(BaseModel):
     email_verified_at: datetime | None
     is_active: bool
     is_banned: bool
+    profile_image_upload_id: uuid.UUID | None = None
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)

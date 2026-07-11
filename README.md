@@ -64,6 +64,7 @@ Duplicate `.env.example` to `.env` and adjust the variables as required:
 | `PASSWORD_PEPPER` | Secret pepper appended to passwords before hashing | `replace-with-a-long-random-pepper` |
 | `REDIS_URL` | Redis URL for rate limiting and cache storage | `redis://localhost:6379/0` |
 | `TMDB_API_KEY` | API credentials for TMDB integration | *None* |
+| `CLOUDFLARE_R2_*` | R2 account ID, S3 credentials, and private bucket | *None* |
 
 ---
 
@@ -133,3 +134,21 @@ python -m scripts.run_seed --provider open_library --media-type BOOK --seed-kind
 ```
 
 Seed pages are idempotent by provider, media type, seed kind, and cursor. Spotify deliberately has no seed command and is used only for on-demand album/track search.
+
+---
+
+## Profile-image uploads
+
+Profile images are authenticated, limited to JPEG/PNG/WebP, validated from their magic bytes, decoded with a pixel/dimension limit, and re-encoded to WebP before entering R2. Keep the R2 bucket private; owners retrieve images through the API.
+
+```text
+POST   /api/v1/uploads/profile-image   multipart/form-data field: file
+GET    /api/v1/uploads/{upload_id}/content
+DELETE /api/v1/uploads/{upload_id}
+```
+
+Apply the migration after adding the R2 configuration:
+
+```bash
+alembic upgrade head
+```

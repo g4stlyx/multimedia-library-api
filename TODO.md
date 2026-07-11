@@ -95,16 +95,16 @@
 
 ## Phase 5 - Uploads and R2
 
-- [ ] Create `uploads` table.
-- [ ] Configure Cloudflare R2 client.
-- [ ] Implement profile image upload endpoint.
-- [ ] Enforce upload size limit.
-- [ ] Validate image magic bytes.
-- [ ] Decode and verify image dimensions.
-- [ ] Re-encode uploaded images.
-- [ ] Generate server-side object keys.
-- [ ] Store profile images in R2.
-- [ ] Add upload security tests.
+- [x] Create `uploads` table.
+- [x] Configure Cloudflare R2 client.
+- [x] Implement profile image upload endpoint.
+- [x] Enforce upload size limit.
+- [x] Validate image magic bytes.
+- [x] Decode and verify image dimensions.
+- [x] Re-encode uploaded images.
+- [x] Generate server-side object keys.
+- [x] Store profile images in R2.
+- [x] Add upload security tests.
 
 ## Phase 6 - Imports
 

@@ -74,6 +74,8 @@
 - [x] Implement list CRUD.
 - [x] Add soft delete support.
 - [x] Add cross-user ownership tests.
+- [x] Enforce non-public review/list/comment visibility at query and target boundaries.
+- [x] Limit replies to one level and support owner-only per-item list notes.
 
 ## Phase 4 - Providers and Seeding
 

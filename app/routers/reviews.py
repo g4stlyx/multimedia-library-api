@@ -46,7 +46,13 @@ def list_reviews(
 ) -> list[ReviewPublic]:
     service = ReviewService(db)
     offset = (page - 1) * limit
-    return service.repo.list_reviews(media_id=media_id, user_id=user_id, limit=limit, offset=offset)
+    return service.repo.list_reviews(
+        media_id=media_id,
+        user_id=user_id,
+        viewer_user_id=current_user.id,
+        limit=limit,
+        offset=offset,
+    )
 
 
 @router.get("/{review_id}", response_model=ReviewPublic)
@@ -59,7 +65,7 @@ def get_review(
     review = service.repo.get_by_id(review_id)
     if not review:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Review not found")
-    if review.visibility == "private" and review.user_id != current_user.id:
+    if review.visibility != "public" and review.user_id != current_user.id:
         assert_owner_or_admin(resource_user_id=review.user_id, current_user=current_user)
     return review
 

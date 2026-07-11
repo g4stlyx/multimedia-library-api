@@ -5,6 +5,8 @@ from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 
 from app.models.social import Comment
+from app.models.user import User
+from app.core.permissions import is_admin_at_level
 from app.repositories.comment_repository import CommentRepository
 from app.repositories.review_repository import ReviewRepository
 from app.repositories.list_repository import ListRepository
@@ -36,6 +38,22 @@ class CommentService:
         else:
             raise ValueError(f"Unsupported comment target type: {target_type}")
 
+    def verify_target_access(self, target_type: str, target_id: uuid.UUID, viewer: User) -> None:
+        t_type = target_type.strip().lower()
+        self._verify_target_exists(t_type, target_id)
+        target = None
+        if t_type == "review":
+            target = self.review_repo.get_by_id(target_id)
+        elif t_type == "list":
+            target = self.list_repo.get_by_id(target_id)
+        if (
+            target is not None
+            and target.visibility != "public"
+            and target.user_id != viewer.id
+            and not is_admin_at_level(viewer, 1)
+        ):
+            raise PermissionError("This discussion is not available to you")
+
     def add_comment(
         self,
         user_id: uuid.UUID,
@@ -52,6 +70,8 @@ class CommentService:
                 raise ValueError("Parent comment not found")
             if parent.target_id != target_id or parent.target_type != target_type.strip().lower():
                 raise ValueError("Parent comment target mismatch")
+            if parent.parent_comment_id is not None:
+                raise ValueError("Only one level of comment replies is supported")
 
         comment = self.repo.create(
             user_id=user_id,

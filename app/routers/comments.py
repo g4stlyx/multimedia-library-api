@@ -23,6 +23,7 @@ def create_comment(
 ) -> CommentPublic:
     service = CommentService(db)
     try:
+        service.verify_target_access(body.target_type, body.target_id, current_user)
         return service.add_comment(
             user_id=current_user.id,
             target_type=body.target_type,
@@ -30,6 +31,8 @@ def create_comment(
             body=body.body,
             parent_comment_id=body.parent_comment_id
         )
+    except PermissionError as e:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e))
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
@@ -47,7 +50,9 @@ def list_comments(
     service = CommentService(db)
     offset = (page - 1) * limit
     try:
-        service._verify_target_exists(target_type, target_id)
+        service.verify_target_access(target_type, target_id, current_user)
+    except PermissionError as e:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e))
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     return service.repo.list_comments_for_target(

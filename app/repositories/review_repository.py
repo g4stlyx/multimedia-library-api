@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime, timezone
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from app.models.social import Review
@@ -38,6 +38,7 @@ class ReviewRepository:
         self,
         media_id: uuid.UUID | None = None,
         user_id: uuid.UUID | None = None,
+        viewer_user_id: uuid.UUID | None = None,
         limit: int = 20,
         offset: int = 0
     ) -> list[Review]:
@@ -46,6 +47,10 @@ class ReviewRepository:
             stmt = stmt.where(Review.media_id == media_id)
         if user_id:
             stmt = stmt.where(Review.user_id == user_id)
+        if viewer_user_id:
+            stmt = stmt.where(
+                or_(Review.visibility == "public", Review.user_id == viewer_user_id)
+            )
         stmt = stmt.order_by(Review.created_at.desc()).offset(offset).limit(limit)
         return list(self.db.scalars(stmt).all())
 

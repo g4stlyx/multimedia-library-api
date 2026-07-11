@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from app.core.permissions import get_current_active_user, assert_owner_or_admin
 from app.database import get_db
 from app.models.user import User
-from app.schemas.list import ListCreate, ListUpdate, ListPublic, ListItemAdd, ListItemReorder, ListItemPublic
+from app.schemas.list import ListCreate, ListUpdate, ListPublic, ListItemAdd, ListItemReorder, ListItemPublic, ListItemUpdate
 from app.services.list_service import ListService
 
 logger = logging.getLogger(__name__)
@@ -46,9 +46,13 @@ def list_lists(
 ) -> list[ListPublic]:
     service = ListService(db)
     offset = (page - 1) * limit
-    if visibility == "private" or user_id == current_user.id:
-        return service.repo.list_lists(user_id=current_user.id, visibility=visibility, limit=limit, offset=offset)
-    return service.repo.list_lists(user_id=user_id, visibility=visibility, limit=limit, offset=offset)
+    return service.repo.list_lists(
+        user_id=user_id,
+        visibility=visibility,
+        viewer_user_id=current_user.id,
+        limit=limit,
+        offset=offset,
+    )
 
 
 @router.get("/{list_id}", response_model=ListPublic)
@@ -61,7 +65,7 @@ def get_list(
     mlist = service.repo.get_by_id(list_id)
     if not mlist:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="List not found")
-    if mlist.visibility == "private" and mlist.user_id != current_user.id:
+    if mlist.visibility != "public" and mlist.user_id != current_user.id:
         assert_owner_or_admin(resource_user_id=mlist.user_id, current_user=current_user)
     return mlist
 
@@ -125,6 +129,28 @@ def add_item_to_list(
             user_id=current_user.id,
             media_id=body.media_id,
             note=body.note
+        )
+    except PermissionError as e:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
+@router.patch("/{list_id}/items/{media_id}", response_model=ListItemPublic)
+def update_list_item(
+    list_id: uuid.UUID,
+    media_id: uuid.UUID,
+    body: ListItemUpdate,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+) -> ListItemPublic:
+    service = ListService(db)
+    try:
+        return service.update_item_note(
+            list_id=list_id,
+            user_id=current_user.id,
+            media_id=media_id,
+            note=body.note,
         )
     except PermissionError as e:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e))

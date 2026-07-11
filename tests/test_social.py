@@ -167,6 +167,18 @@ def test_comments_flow(
     assert res_rep.status_code == 201
     reply_id = res_rep.json()["id"]
 
+    nested_reply = client.post(
+        "/api/v1/comments",
+        json={
+            "target_type": "review",
+            "target_id": review_id,
+            "parent_comment_id": reply_id,
+            "body": "A third level should not be accepted",
+        },
+        headers=auth_headers_user_b,
+    )
+    assert nested_reply.status_code == 400
+
     # Verify review comment count is now 2
     assert client.get(f"/api/v1/reviews/{review_id}", headers=auth_headers_user_a).json()["comment_count"] == 2
 
@@ -237,6 +249,21 @@ def test_lists_and_items_reorder(
     assert res_add.status_code == 201
     assert res_add.json()["position"] == 1
 
+    item_note_b = client.patch(
+        f"/api/v1/lists/{list_id}/items/{media2.id}",
+        json={"note": "Not yours"},
+        headers=auth_headers_user_b,
+    )
+    assert item_note_b.status_code == 403
+
+    item_note_a = client.patch(
+        f"/api/v1/lists/{list_id}/items/{media2.id}",
+        json={"note": "Updated item note"},
+        headers=auth_headers_user_a,
+    )
+    assert item_note_a.status_code == 200
+    assert item_note_a.json()["note"] == "Updated item note"
+
     # Cross-user add check
     res_add_b = client.post(
         f"/api/v1/lists/{list_id}/items",
@@ -299,3 +326,42 @@ def test_lists_and_items_reorder(
 
     # Verify deleted
     assert client.get(f"/api/v1/lists/{list_id}", headers=auth_headers_user_a).status_code == 404
+
+
+def test_non_public_reviews_lists_and_comments_are_not_discoverable(
+    client: TestClient,
+    test_media: Media,
+    auth_headers_user_a: dict[str, str],
+    auth_headers_user_b: dict[str, str],
+):
+    review_response = client.post(
+        "/api/v1/reviews",
+        json={"media_id": str(test_media.id), "body": "Private review", "visibility": "private"},
+        headers=auth_headers_user_a,
+    )
+    assert review_response.status_code == 201
+    review_id = review_response.json()["id"]
+
+    other_reviews = client.get(
+        f"/api/v1/reviews?media_id={test_media.id}",
+        headers=auth_headers_user_b,
+    )
+    assert other_reviews.status_code == 200
+    assert other_reviews.json() == []
+    assert client.get(f"/api/v1/reviews/{review_id}", headers=auth_headers_user_b).status_code == 403
+    assert client.post(
+        "/api/v1/comments",
+        json={"target_type": "review", "target_id": review_id, "body": "Not allowed"},
+        headers=auth_headers_user_b,
+    ).status_code == 403
+
+    list_response = client.post(
+        "/api/v1/lists",
+        json={"title": "Private list", "visibility": "private"},
+        headers=auth_headers_user_a,
+    )
+    assert list_response.status_code == 201
+    list_id = list_response.json()["id"]
+    assert client.get(f"/api/v1/lists/{list_id}", headers=auth_headers_user_b).status_code == 403
+    other_lists = client.get("/api/v1/lists", headers=auth_headers_user_b)
+    assert all(item["id"] != list_id for item in other_lists.json())

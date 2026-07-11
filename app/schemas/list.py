@@ -20,6 +20,10 @@ class ListItemAdd(ListItemBase):
     pass
 
 
+class ListItemUpdate(BaseModel):
+    note: str | None = None
+
+
 class ListItemReorder(BaseModel):
     media_ids: list[uuid.UUID]
 

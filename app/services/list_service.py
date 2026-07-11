@@ -122,6 +122,25 @@ class ListService:
         
         self.db.commit()
 
+    def update_item_note(
+        self,
+        list_id: uuid.UUID,
+        user_id: uuid.UUID,
+        media_id: uuid.UUID,
+        note: str | None,
+    ) -> ListItem:
+        mlist = self.repo.get_by_id(list_id)
+        if not mlist:
+            raise ValueError("List not found")
+        if mlist.user_id != user_id:
+            raise PermissionError("Insufficient permissions")
+        item = next((item for item in mlist.items if item.media_id == media_id), None)
+        if item is None:
+            raise ValueError("Item not found in list")
+        updated_item = self.repo.update_item_note(item, note)
+        self.db.commit()
+        return updated_item
+
     def reorder_list_items(
         self,
         list_id: uuid.UUID,

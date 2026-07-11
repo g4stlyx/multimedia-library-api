@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime, timezone
-from sqlalchemy import select, func
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.models.social import MediaList, ListItem
@@ -23,6 +23,7 @@ class ListRepository:
         self,
         user_id: uuid.UUID | None = None,
         visibility: str | None = None,
+        viewer_user_id: uuid.UUID | None = None,
         limit: int = 20,
         offset: int = 0
     ) -> list[MediaList]:
@@ -31,6 +32,10 @@ class ListRepository:
             stmt = stmt.where(MediaList.user_id == user_id)
         if visibility:
             stmt = stmt.where(MediaList.visibility == visibility)
+        if viewer_user_id:
+            stmt = stmt.where(
+                or_(MediaList.visibility == "public", MediaList.user_id == viewer_user_id)
+            )
         stmt = stmt.order_by(MediaList.created_at.desc()).offset(offset).limit(limit)
         return list(self.db.scalars(stmt).all())
 
@@ -82,6 +87,11 @@ class ListRepository:
             note=note.strip() if note else None
         )
         self.db.add(item)
+        self.db.flush()
+        return item
+
+    def update_item_note(self, item: ListItem, note: str | None) -> ListItem:
+        item.note = note.strip() if note else None
         self.db.flush()
         return item
 

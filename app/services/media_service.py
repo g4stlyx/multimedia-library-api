@@ -14,7 +14,8 @@ from app.providers.base import ProviderSearchResult
 from app.providers.http import ProviderError
 from app.providers.registry import ProviderRegistry
 from app.repositories.media_repository import MediaRepository
-from app.schemas.media import MediaDetailPublic, MediaPublic, MediaSearchResponse, ProviderAttributionPublic
+from app.schemas.media import MediaDetailPublic, MediaPublic, MediaSearchResponse
+from app.services.provider_presentation_service import ProviderPresentationService
 
 logger = logging.getLogger(__name__)
 
@@ -51,16 +52,7 @@ class MediaService:
             **media_data,
             average_rating=average_rating,
             rating_count=rating_count,
-            provider_attributions=[
-                ProviderAttributionPublic(
-                    provider=external_id.provider,
-                    external_url=external_id.external_url,
-                    attribution_text=external_id.attribution_text,
-                    attribution_url=external_id.attribution_url,
-                )
-                for external_id in media.external_ids
-                if external_id.attribution_text or external_id.attribution_url
-            ],
+            provider_attributions=ProviderPresentationService.build(media),
         )
 
 

@@ -47,10 +47,32 @@ class ProviderAttributionPublic(BaseModel):
     attribution_url: str | None = None
 
 
+class ProviderTrackPublic(BaseModel):
+    name: str
+    duration_ms: int | None = None
+
+
+class ProviderPresentationPublic(ProviderAttributionPublic):
+    """A safe, provider-specific subset of normalized provider metadata.
+
+    Provider responses are retained internally for refresh and troubleshooting, but
+    they are not an API contract. This DTO deliberately exposes only the details
+    the client needs to render provider attributions and metadata panels.
+    """
+
+    publisher: str | None = None
+    platforms: list[str] = Field(default_factory=list)
+    metacritic_score: int | None = None
+    isbn_10: list[str] = Field(default_factory=list)
+    isbn_13: list[str] = Field(default_factory=list)
+    artists: list[str] = Field(default_factory=list)
+    tracklist: list[ProviderTrackPublic] = Field(default_factory=list)
+
+
 class MediaDetailPublic(MediaPublic):
     average_rating: float | None = None
     rating_count: int = 0
-    provider_attributions: list[ProviderAttributionPublic] = Field(default_factory=list)
+    provider_attributions: list[ProviderPresentationPublic] = Field(default_factory=list)
 
 
 class MediaSearchResponse(BaseModel):

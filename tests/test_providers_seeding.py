@@ -10,6 +10,7 @@ from app.models.seed import ProviderSnapshot, SeedItem, SeedRun, SeedRunStatus
 from app.providers.base import ProviderMediaDetails, ProviderSearchResult, ProviderSeedPage
 from app.providers.http import ProviderHttpClient
 from app.services.media_service import MediaService
+from app.services.provider_presentation_service import ProviderPresentationService
 from app.services.seed_service import SeedService
 
 
@@ -30,6 +31,36 @@ async def test_rawg_upsert_stores_provider_attribution_and_is_idempotent(db_sess
     external_id = db_session.query(MediaExternalId).filter_by(media_id=created.id, provider="rawg").one()
     assert external_id.attribution_text == "Data provided by RAWG"
     assert external_id.attribution_url == "https://rawg.io/"
+
+
+def test_provider_presentation_whitelists_game_metadata(db_session):
+    service = MediaService(db_session, get_settings())
+    media = service.repo.create_media(
+        media_type=MediaType.GAME,
+        canonical_title="Example Game",
+        metadata_json={
+            "publishers": [{"name": "Example Studios"}],
+            "platforms": [{"platform": {"name": "PC"}}, {"platform": {"name": "PlayStation 5"}}],
+            "metacritic": 92,
+            "unrelated_provider_payload": {"secret": "not public"},
+        },
+    )
+    service.repo.add_external_id(
+        media_id=media.id,
+        provider="rawg",
+        external_id="example-game",
+        external_url="https://rawg.io/games/example-game",
+        attribution_text="Data provided by RAWG",
+        attribution_url="https://rawg.io/",
+    )
+
+    presentation = ProviderPresentationService.build(media)
+
+    assert len(presentation) == 1
+    assert presentation[0].publisher == "Example Studios"
+    assert presentation[0].platforms == ["PC", "PlayStation 5"]
+    assert presentation[0].metacritic_score == 92
+    assert "unrelated_provider_payload" not in presentation[0].model_dump()
 
 
 @pytest.mark.anyio

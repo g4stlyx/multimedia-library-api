@@ -63,6 +63,9 @@ class Settings(BaseSettings):
     profile_image_max_bytes: int = 5 * 1024 * 1024
     profile_image_max_dimension: int = 4096
     profile_image_max_pixels: int = 16_000_000
+    import_max_file_bytes: int = 5 * 1024 * 1024
+    import_max_rows: int = 10_000
+    import_max_concurrent_jobs_per_user: int = 2
 
 
     model_config = SettingsConfigDict(
@@ -93,6 +96,9 @@ class Settings(BaseSettings):
         "profile_image_max_bytes",
         "profile_image_max_dimension",
         "profile_image_max_pixels",
+        "import_max_file_bytes",
+        "import_max_rows",
+        "import_max_concurrent_jobs_per_user",
     )
     @classmethod
     def validate_positive_int(cls, value: int) -> int:

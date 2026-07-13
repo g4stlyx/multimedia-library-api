@@ -110,18 +110,18 @@
 
 ## Phase 6 - Imports
 
-- [ ] Create `import_jobs` table.
-- [ ] Create `import_items` table.
-- [ ] Implement async import worker.
-- [ ] Implement Letterboxd CSV parser.
-- [ ] Implement generic CSV parser.
-- [ ] Add import idempotency.
-- [ ] Match imports against local DB first.
-- [ ] Add provider fallback for unmatched rows.
-- [ ] Add import conflict handling.
-- [ ] Add Steam import design.
-- [ ] Add Spotify OAuth import design.
-- [ ] Add import ownership tests.
+- [x] Create `import_jobs` table.
+- [x] Create `import_items` table.
+- [x] Implement async import worker.
+- [x] Implement Letterboxd CSV parser.
+- [x] Implement generic CSV parser.
+- [x] Add import idempotency.
+- [x] Match imports against local DB first.
+- [x] Add provider fallback for unmatched rows.
+- [x] Add import conflict handling.
+- [x] Add Steam import design.
+- [x] Add Spotify OAuth import design.
+- [x] Add import ownership tests.
 
 ## Phase 7 - Admin and Operations
 
@@ -153,3 +153,6 @@
 - [ ] Re-check external API terms before launch.
 - [ ] Run full security review.
 - [ ] Run production restore drill.
+
+## Phase 9 - Extras
+- [ ] Steam and spotify import support

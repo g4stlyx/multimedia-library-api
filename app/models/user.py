@@ -80,6 +80,9 @@ class User(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     profile_image: Mapped[Upload | None] = relationship(
         "Upload", foreign_keys=[profile_image_upload_id], post_update=True
     )
+    import_jobs: Mapped[list[ImportJob]] = relationship(
+        "ImportJob", back_populates="user", cascade="all, delete-orphan"
+    )
 
 
 class UserCredential(TimestampMixin, Base):

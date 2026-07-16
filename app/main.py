@@ -3,7 +3,9 @@ from fastapi import FastAPI
 from app.core.config import get_settings
 from app.core.logging import configure_logging
 from app.core.middleware import request_id_middleware
-from app.routers import auth, media, users, library, reviews, comments, lists, uploads, imports
+from app.routers import auth, media, users, library, reviews, comments, lists, uploads, imports, admin
+from app.database import SessionLocal
+from app.services.backup_service import BackupService
 
 # (Set-ExecutionPolicy -Scope Process -ExecutionPolicy RemoteSigned) ; (& c:\Users\sefa_\Desktop\multimedia-library-app\multimedia-library-api\venv\Scripts\Activate.ps1)
 # alembic upgrade head
@@ -28,7 +30,7 @@ app.include_router(comments.router, prefix=settings.api_prefix)
 app.include_router(lists.router, prefix=settings.api_prefix)
 app.include_router(uploads.router, prefix=settings.api_prefix)
 app.include_router(imports.router, prefix=settings.api_prefix)
-
+app.include_router(admin.router, prefix=settings.api_prefix)
 
 
 @app.get("/health", tags=["system"])

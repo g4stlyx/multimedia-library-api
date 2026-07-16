@@ -23,6 +23,7 @@ from app.models.user import (
 from app.models.library import UserMediaEntry
 from app.models.social import Review, Comment, MediaList, ListItem
 from app.models.import_job import ImportItem, ImportItemStatus, ImportJob, ImportJobStatus, ImportSource
+from app.models.backup import BackupMetadata
 
 __all__ = [
     "AuditLog",
@@ -59,4 +60,5 @@ __all__ = [
     "ImportJob",
     "ImportJobStatus",
     "ImportSource",
+    "BackupMetadata",
 ]

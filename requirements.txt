@@ -14,3 +14,5 @@ boto3==1.35.87
 Pillow==11.0.0
 python-multipart==0.0.20
 pytest==8.2.2
+cryptography==42.0.5
+

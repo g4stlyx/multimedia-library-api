@@ -66,6 +66,9 @@ class Settings(BaseSettings):
     import_max_file_bytes: int = 5 * 1024 * 1024
     import_max_rows: int = 10_000
     import_max_concurrent_jobs_per_user: int = 2
+    backup_encryption_key: str | None = None
+    backup_email_recipient: str | None = None
+
 
 
     model_config = SettingsConfigDict(

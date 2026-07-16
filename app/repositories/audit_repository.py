@@ -66,3 +66,49 @@ class AuditRepository:
         self.db.add(log)
         self.db.flush()
         return log
+
+    def get_audit_logs(
+        self,
+        *,
+        limit: int = 50,
+        offset: int = 0,
+        action: str | None = None,
+        actor_user_id: uuid.UUID | None = None,
+        resource_type: str | None = None,
+        resource_id: str | None = None,
+    ) -> tuple[int, list[AuditLog]]:
+        from sqlalchemy import select, func
+        stmt = select(AuditLog)
+        if action:
+            stmt = stmt.where(AuditLog.action == action)
+        if actor_user_id:
+            stmt = stmt.where(AuditLog.actor_user_id == actor_user_id)
+        if resource_type:
+            stmt = stmt.where(AuditLog.resource_type == resource_type)
+        if resource_id:
+            stmt = stmt.where(AuditLog.resource_id == resource_id)
+
+        total = self.db.scalar(select(func.count()).select_from(stmt.subquery()))
+        
+        stmt = stmt.order_by(AuditLog.created_at.desc()).offset(offset).limit(limit)
+        items = self.db.scalars(stmt).all()
+        return total, list(items)
+
+    def get_auth_error_logs(
+        self,
+        *,
+        limit: int = 50,
+        offset: int = 0,
+        error_type: str | None = None,
+    ) -> tuple[int, list[AuthErrorLog]]:
+        from sqlalchemy import select, func
+        stmt = select(AuthErrorLog)
+        if error_type:
+            stmt = stmt.where(AuthErrorLog.error_type == error_type)
+
+        total = self.db.scalar(select(func.count()).select_from(stmt.subquery()))
+        
+        stmt = stmt.order_by(AuthErrorLog.created_at.desc()).offset(offset).limit(limit)
+        items = self.db.scalars(stmt).all()
+        return total, list(items)
+

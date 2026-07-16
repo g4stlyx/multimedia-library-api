@@ -72,6 +72,36 @@ class EmailService:
             body=text,
         )
 
+    def send_backup_notification(
+        self,
+        *,
+        to_email: str,
+        status: str,
+        filename: str | None = None,
+        size_bytes: int | None = None,
+        sha256: str | None = None,
+        storage_key: str | None = None,
+        error_message: str | None = None,
+    ) -> EmailSendResult:
+        if status == "success":
+            subject = f"Database Backup SUCCESS - {filename}"
+            body = (
+                f"The nightly database backup completed successfully.\n\n"
+                f"Filename: {filename}\n"
+                f"File Size: {size_bytes} bytes\n"
+                f"SHA-256 Checksum: {sha256}\n"
+                f"R2 Storage Key: {storage_key}\n\n"
+                f"This backup is encrypted and can be restored using the secure restore CLI script."
+            )
+        else:
+            subject = "Database Backup FAILED"
+            body = (
+                f"The nightly database backup job failed.\n\n"
+                f"Error Message:\n{error_message}\n\n"
+                f"Please inspect the server logs immediately."
+            )
+        return self._send(to_email=to_email, subject=subject, body=body)
+
     def _send(self, *, to_email: str, subject: str, body: str) -> EmailSendResult:
         if not self.is_configured():
             logger.warning("email_delivery_skipped_not_configured")

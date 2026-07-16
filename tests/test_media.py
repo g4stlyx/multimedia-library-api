@@ -138,6 +138,9 @@ async def test_search_local_first_and_fallback(db_session, client):
             backdrop_url=None,
             popularity_score=80.0,
             metadata_json={},
+            external_url=None,
+            attribution_text=None,
+            attribution_url=None,
         )
     ]
 
@@ -189,6 +192,9 @@ async def test_upsert_by_external_id_and_deduplication(db_session):
         alternate_titles=[],
         images=[],
         metadata_json={},
+        external_url=None,
+        attribution_text=None,
+        attribution_url=None,
     )
 
     with patch("app.providers.tmdb.TMDBProviderAdapter.get_details", return_value=mock_details):
@@ -270,6 +276,9 @@ async def test_duplicate_candidates_handling(db_session):
         alternate_titles=[],
         images=[],
         metadata_json={},
+        external_url=None,
+        attribution_text=None,
+        attribution_url=None,
     )
 
     with patch("app.providers.tmdb.TMDBProviderAdapter.get_details", return_value=mock_details):

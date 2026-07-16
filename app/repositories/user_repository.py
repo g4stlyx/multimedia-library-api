@@ -92,3 +92,55 @@ class UserRepository:
         user.display_name = display_name.strip() if display_name else None
         self.db.flush()
         return user
+
+    def list_users(
+        self,
+        *,
+        limit: int = 50,
+        offset: int = 0,
+        search_query: str | None = None,
+        role: UserRole | None = None,
+        is_banned: bool | None = None,
+    ) -> tuple[int, list[User]]:
+        from sqlalchemy import select, func, or_
+        stmt = select(User)
+        if search_query:
+            q = f"%{search_query.strip()}%"
+            stmt = stmt.where(
+                or_(
+                    User.username.ilike(q),
+                    User.email.ilike(q),
+                    User.display_name.ilike(q),
+                )
+            )
+        if role:
+            stmt = stmt.where(User.role == role)
+        if is_banned is not None:
+            stmt = stmt.where(User.is_banned == is_banned)
+
+        total = self.db.scalar(select(func.count()).select_from(stmt.subquery()))
+        
+        stmt = stmt.order_by(User.created_at.desc()).offset(offset).limit(limit)
+        items = self.db.scalars(stmt).all()
+        return total, list(items)
+
+    def ban_user(self, *, user: User, is_banned: bool) -> User:
+        user.is_banned = is_banned
+        self.db.flush()
+        return user
+
+    def update_role_and_level(
+        self,
+        *,
+        user: User,
+        role: UserRole,
+        admin_level: int | None = None,
+    ) -> User:
+        user.role = role
+        if role == UserRole.USER:
+            user.admin_level = None
+        else:
+            user.admin_level = admin_level if admin_level is not None else 1
+        self.db.flush()
+        return user
+

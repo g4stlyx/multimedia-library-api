@@ -1,11 +1,21 @@
 """Create a super admin user if no admin accounts exist.
 
-Example: python -m scripts.create_admin
+Examples:
+    python -m scripts.create_admin
+    python scripts/create_admin.py
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
+import sys
+from pathlib import Path
+
 from sqlalchemy import select
+
+# Direct script execution places ``scripts/`` rather than the project root on
+# sys.path. Add the root so both documented invocation styles can import app.
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
 from app.core.config import get_settings
 from app.core.security import (
@@ -37,13 +47,13 @@ def main() -> None:
         
         admin_email = "admin@example.com"
         admin_username = "g4stly"
-        admin_password = "12345678"
+        admin_password = "DevAdmin1234"
 
         # Create user record
         user = user_repo.create_user(
             email=admin_email,
             username=admin_username,
-            display_name="Super Admin",
+            display_name="G4stLy admin",
             role=UserRole.ADMIN,
             admin_level=0,  # Level 0 (Super Admin)
         )

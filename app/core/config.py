@@ -61,13 +61,19 @@ class Settings(BaseSettings):
     cloudflare_r2_public_base_url: str | None = None
 
     profile_image_max_bytes: int = 5 * 1024 * 1024
+    max_request_body_bytes: int = 6 * 1024 * 1024
     profile_image_max_dimension: int = 4096
     profile_image_max_pixels: int = 16_000_000
     import_max_file_bytes: int = 5 * 1024 * 1024
     import_max_rows: int = 10_000
     import_max_concurrent_jobs_per_user: int = 2
+    import_worker_lease_seconds: int = 900
+    import_worker_poll_seconds: int = 2
     backup_encryption_key: str | None = None
     backup_email_recipient: str | None = None
+    backup_max_runtime_minutes: int = 120
+    backup_worker_lease_seconds: int = 10_800
+    backup_worker_poll_seconds: int = 10
 
 
 
@@ -97,11 +103,17 @@ class Settings(BaseSettings):
         "provider_timeout_seconds",
         "provider_max_retries",
         "profile_image_max_bytes",
+        "max_request_body_bytes",
         "profile_image_max_dimension",
         "profile_image_max_pixels",
         "import_max_file_bytes",
         "import_max_rows",
         "import_max_concurrent_jobs_per_user",
+        "import_worker_lease_seconds",
+        "import_worker_poll_seconds",
+        "backup_max_runtime_minutes",
+        "backup_worker_lease_seconds",
+        "backup_worker_poll_seconds",
     )
     @classmethod
     def validate_positive_int(cls, value: int) -> int:
@@ -113,6 +125,9 @@ class Settings(BaseSettings):
     def validate_secret_strength(self) -> "Settings":
         if self.password_max_length < self.password_min_length:
             raise ValueError("password_max_length must be greater than password_min_length")
+
+        if self.backup_worker_lease_seconds <= self.backup_max_runtime_minutes * 60:
+            raise ValueError("backup_worker_lease_seconds must exceed backup_max_runtime_minutes")
 
         if self.app_env in {"production", "staging"}:
             weak_values = {

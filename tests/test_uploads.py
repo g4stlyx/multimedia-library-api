@@ -32,6 +32,9 @@ def _register(client, *, email: str, username: str) -> str:
         "password": "correct horse battery staple",
     })
     assert response.status_code == 201
+    verification_token = response.json()["email_verification_token"]
+    assert verification_token
+    assert client.post("/api/v1/auth/verify-email", json={"token": verification_token}).status_code == 200
     return response.json()["access_token"]
 
 

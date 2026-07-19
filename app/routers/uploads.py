@@ -5,8 +5,8 @@ from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings, get_settings
-from app.core.permissions import get_current_active_user
-from app.core.rate_limit import rate_limit
+from app.core.permissions import get_current_verified_user
+from app.core.rate_limit import rate_limit, rate_limit_user
 from app.core.request_context import request_id_context
 from app.database import get_db
 from app.models.user import User
@@ -36,10 +36,13 @@ async def _read_profile_image(upload: UploadFile, max_bytes: int) -> bytes:
 
 @router.post(
     "/profile-image", response_model=UploadPublic, status_code=status.HTTP_201_CREATED,
-    dependencies=[Depends(rate_limit("uploads:profile-image", limit=10, window_seconds=3600))],
+    dependencies=[
+        Depends(rate_limit("uploads:profile-image", limit=10, window_seconds=3600)),
+        Depends(rate_limit_user("uploads:profile-image", limit=10, window_seconds=3600)),
+    ],
 )
 async def upload_profile_image(
-    file: UploadFile = File(...), current_user: User = Depends(get_current_active_user),
+    file: UploadFile = File(...), current_user: User = Depends(get_current_verified_user),
     db: Session = Depends(get_db), settings: Settings = Depends(get_settings),
     storage: ObjectStorage = Depends(get_object_storage),
 ) -> UploadPublic:
@@ -58,7 +61,7 @@ async def upload_profile_image(
 
 @router.get("/{upload_id}/content")
 def get_upload_content(
-    upload_id: str, current_user: User = Depends(get_current_active_user), db: Session = Depends(get_db),
+    upload_id: str, current_user: User = Depends(get_current_verified_user), db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings), storage: ObjectStorage = Depends(get_object_storage),
 ) -> Response:
     import uuid
@@ -74,7 +77,7 @@ def get_upload_content(
 
 @router.delete("/{upload_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_upload(
-    upload_id: str, current_user: User = Depends(get_current_active_user), db: Session = Depends(get_db),
+    upload_id: str, current_user: User = Depends(get_current_verified_user), db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings), storage: ObjectStorage = Depends(get_object_storage),
 ) -> Response:
     import uuid

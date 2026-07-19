@@ -1,11 +1,10 @@
 from fastapi import FastAPI
 
 from app.core.config import get_settings
+from app.core.body_limit import RequestBodyLimitMiddleware
 from app.core.logging import configure_logging
 from app.core.middleware import request_id_middleware
 from app.routers import auth, media, users, library, reviews, comments, lists, uploads, imports, admin
-from app.database import SessionLocal
-from app.services.backup_service import BackupService
 
 # (Set-ExecutionPolicy -Scope Process -ExecutionPolicy RemoteSigned) ; (& c:\Users\sefa_\Desktop\multimedia-library-app\multimedia-library-api\venv\Scripts\Activate.ps1)
 # alembic upgrade head
@@ -19,6 +18,7 @@ settings = get_settings()
 configure_logging(settings)
 
 app = FastAPI(title=settings.app_name)
+app.add_middleware(RequestBodyLimitMiddleware, max_body_bytes=settings.max_request_body_bytes)
 app.middleware("http")(request_id_middleware)
 
 app.include_router(auth.router, prefix=settings.api_prefix)

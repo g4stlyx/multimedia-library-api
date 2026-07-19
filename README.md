@@ -94,6 +94,25 @@ Initialize tables using Alembic:
 alembic upgrade head
 ```
 
+#### Local PostgreSQL with Docker Compose
+
+The included `compose.yaml` starts PostgreSQL and publishes it at `localhost:5432`.
+Add these values to your untracked `.env` file (use a unique password outside local development):
+
+```env
+DATABASE_URL=postgresql+psycopg2://g4stly:your-password@localhost:5432/multimedia_app
+POSTGRES_DB=multimedia_app
+POSTGRES_USER=g4stly
+POSTGRES_PASSWORD=your-password
+```
+
+Start the database, wait for the health check, then run migrations:
+
+```bash
+docker compose up -d postgres
+alembic upgrade head
+```
+
 ### 4. Run Dev Server
 Start the Uvicorn server in reload mode:
 ```bash
@@ -134,6 +153,17 @@ python -m scripts.run_seed --provider open_library --media-type BOOK --seed-kind
 ```
 
 Seed pages are idempotent by provider, media type, seed kind, and cursor. Spotify deliberately has no seed command and is used only for on-demand album/track search.
+
+## Durable workers
+
+The API only validates and queues CSV imports and backup requests. Run these as separate, supervised processes in every non-local deployment so work survives API restarts and does not compete with request handling:
+
+```bash
+python -m app.workers.import_worker
+python -m app.workers.backup_worker
+```
+
+Both workers use database-backed claims and leases. `--once` processes at most one queued item, which is useful for scheduled jobs and smoke tests. Apply the latest Alembic migration before deploying either worker.
 
 ---
 

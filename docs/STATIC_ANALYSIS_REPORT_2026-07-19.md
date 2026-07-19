@@ -6,6 +6,8 @@
 
 ## Executive summary
 
+> **Remediation status (2026-07-19):** The four High findings have been implemented after this assessment. The tracked Medium/Low backlog is maintained in [STATIC_ANALYSIS_REMEDIATION_TODO.md](STATIC_ANALYSIS_REMEDIATION_TODO.md). The findings below remain the assessment snapshot and rationale for the changes.
+
 No confirmed Critical finding was identified. The authentication foundation is good: Argon2id password hashing, signed access tokens with issuer/audience checks, refresh-token rotation/reuse detection, live-user authorization checks, and owner/admin authorization are present.
 
 The main risk is operational exposure rather than a broken authentication primitive. A newly registered but unverified account can invoke expensive provider-backed operations, multipart limits are applied only after FastAPI has parsed the request, and long-running imports/backups are executed inside API processes. The backup workflow also has a deterministic state bug that prevents later backups from being triggered.

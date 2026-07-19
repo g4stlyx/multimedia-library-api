@@ -6,7 +6,6 @@ import hashlib
 import logging
 import os
 import subprocess
-import tempfile
 import urllib.parse
 from datetime import datetime, timezone
 import uuid
@@ -16,7 +15,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import Settings
 from app.repositories.backup_repository import BackupRepository
-from app.storage.r2 import CloudflareR2Storage, ObjectStorageError
+from app.storage.r2 import CloudflareR2Storage
 from app.services.email_service import EmailService
 from app.models.backup import BackupMetadata
 
@@ -38,13 +37,14 @@ class BackupService:
         fernet_key = base64.urlsafe_b64encode(key_hash)
         return Fernet(fernet_key)
 
-    async def run_backup(self) -> BackupMetadata:
+    def run_backup(self, *, backup_id: uuid.UUID, worker_id: str) -> BackupMetadata:
         """Run database backup: dump, compress, encrypt, upload, and email status."""
         timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-        started_at = datetime.now(timezone.utc)
-        
-        backup_record = self.repo.create_backup_metadata(started_at=started_at)
-        self.db.commit()
+        backup_record = self.repo.get_by_id(backup_id)
+        if backup_record is None:
+            raise LookupError("Backup record was not found")
+        if backup_record.status != "processing" or backup_record.worker_id != worker_id:
+            return backup_record
 
         # Workspace relative backup path
         base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
@@ -170,7 +170,7 @@ class BackupService:
                 except Exception as email_err:
                     logger.error("Failed to send backup failure email notification: %s", email_err)
             
-            raise err
+            raise
         
         finally:
             # Delete local backup temp files

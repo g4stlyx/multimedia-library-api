@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import uuid
+import asyncio
 
+from app.core.config import get_settings
 from app.models.import_job import ImportJob, ImportJobStatus, ImportSource
 from app.models.media import Media, MediaType
+from app.services.import_service import ImportService
 
 
 def _register(client, email: str, username: str) -> dict[str, str]:
@@ -12,6 +15,9 @@ def _register(client, email: str, username: str) -> dict[str, str]:
         "password": "correct horse battery staple",
     })
     assert response.status_code == 201
+    verification_token = response.json()["email_verification_token"]
+    assert verification_token
+    assert client.post("/api/v1/auth/verify-email", json={"token": verification_token}).status_code == 200
     return {"Authorization": f"Bearer {response.json()['access_token']}"}
 
 
@@ -27,6 +33,14 @@ def test_import_is_idempotent_and_applies_exact_local_match(client, db_session):
     created = client.post("/api/v1/imports", headers=headers, data={"source": "LETTERBOXD"}, files={"file": _letterboxd_file()})
     assert created.status_code == 201
     job_id = created.json()["id"]
+    assert created.json()["status"] == "PENDING"
+
+    asyncio.run(
+        ImportService(db_session, get_settings()).process_job(
+            uuid.UUID(job_id),
+            worker_id="test-import-worker",
+        )
+    )
 
     job = client.get(f"/api/v1/imports/{job_id}", headers=headers)
     assert job.status_code == 200

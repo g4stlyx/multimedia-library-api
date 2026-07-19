@@ -72,28 +72,47 @@ class ImportService:
                 return existing, False
             raise
 
-    async def process_job(self, job_id: uuid.UUID) -> None:
-        job = self.repo.get_job(job_id)
-        if job is None or job.status != ImportJobStatus.PENDING:
+    async def process_job(self, job_id: uuid.UUID, *, worker_id: str) -> None:
+        job = self.repo.claim_job(
+            job_id=job_id,
+            worker_id=worker_id,
+            lease_seconds=self.settings.import_worker_lease_seconds,
+        )
+        if job is None:
             return
-        now = datetime.now(timezone.utc)
-        self.repo.set_job_status(job, ImportJobStatus.PROCESSING, now)
         self.db.commit()
+        await self.process_claimed_job(job_id, worker_id=worker_id)
+
+    async def process_claimed_job(self, job_id: uuid.UUID, *, worker_id: str) -> None:
+        job = self.repo.get_job(job_id)
+        if (
+            job is None
+            or job.status != ImportJobStatus.PROCESSING
+            or job.worker_id != worker_id
+        ):
+            return
         try:
             for item in self.repo.pending_items(job.id):
                 self.db.refresh(job)
-                if job.status == ImportJobStatus.CANCELLED:
+                if job.status != ImportJobStatus.PROCESSING or job.worker_id != worker_id:
                     return
                 await self._process_item(job, item)
                 self._refresh_progress_and_finalize(job)
+                self.repo.renew_lease(
+                    job,
+                    worker_id=worker_id,
+                    now=datetime.now(timezone.utc),
+                    lease_seconds=self.settings.import_worker_lease_seconds,
+                )
                 self.db.commit()
             self._refresh_progress_and_finalize(job)
+            self.repo.release_claim(job, worker_id=worker_id)
             self.db.commit()
         except Exception:
             logger.exception("import_job_processing_failed", extra={"import_job_id": str(job_id)})
             self.db.rollback()
             job = self.repo.get_job(job_id)
-            if job is not None:
+            if job is not None and job.worker_id == worker_id:
                 self.repo.set_job_status(job, ImportJobStatus.FAILED, datetime.now(timezone.utc), "The import worker stopped unexpectedly")
                 self.db.commit()
 
@@ -262,7 +281,7 @@ class ImportService:
         self.repo.update_progress(job)
         unresolved = any(item.status == ImportItemStatus.CONFLICT for item in job.items)
         remaining = any(item.status in {ImportItemStatus.PENDING, ImportItemStatus.MATCHED} for item in job.items)
-        if unresolved:
+        if unresolved and not remaining:
             job.status = ImportJobStatus.AWAITING_RESOLUTION
         elif not remaining:
             self.repo.set_job_status(job, ImportJobStatus.COMPLETED, datetime.now(timezone.utc))

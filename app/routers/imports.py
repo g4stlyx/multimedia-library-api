@@ -2,12 +2,12 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Query, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings, get_settings
-from app.core.permissions import get_current_active_user
-from app.core.rate_limit import rate_limit
+from app.core.permissions import get_current_active_user, get_current_verified_user
+from app.core.rate_limit import rate_limit, rate_limit_user
 from app.database import get_db
 from app.models.import_job import ImportSource
 from app.models.media import MediaType
@@ -16,7 +16,6 @@ from app.repositories.import_repository import ImportRepository
 from app.schemas.import_job import ImportConflictResolution, ImportJobPublic
 from app.services.import_parser import ImportParseError
 from app.services.import_service import ImportService
-from app.workers.import_worker import run_import_job_in_session
 
 router = APIRouter(prefix="/imports", tags=["imports"])
 
@@ -32,17 +31,16 @@ async def _read_csv(upload: UploadFile, max_bytes: int) -> bytes:
 
 @router.post("", response_model=ImportJobPublic, status_code=status.HTTP_201_CREATED, dependencies=[Depends(rate_limit("imports:create", limit=10, window_seconds=3600))])
 async def create_import(
-    background_tasks: BackgroundTasks, file: UploadFile = File(...), source: ImportSource = Form(...),
-    generic_media_type: MediaType | None = Form(None), current_user: User = Depends(get_current_active_user),
+    file: UploadFile = File(...), source: ImportSource = Form(...),
+    generic_media_type: MediaType | None = Form(None), current_user: User = Depends(get_current_verified_user),
     db: Session = Depends(get_db), settings: Settings = Depends(get_settings),
+    _: None = Depends(rate_limit_user("imports:create", limit=5, window_seconds=3600)),
 ) -> ImportJobPublic:
     try:
         content = await _read_csv(file, settings.import_max_file_bytes)
         job, created = ImportService(db, settings).create_csv_job(
             user_id=current_user.id, source=source, filename=file.filename, content=content, default_media_type=generic_media_type,
         )
-        if created:
-            background_tasks.add_task(run_import_job_in_session, db, str(job.id), settings)
         return job
     except ImportParseError as error:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(error)) from None

@@ -102,7 +102,11 @@ async def test_search_local_first_and_fallback(db_session, client):
         "display_name": "Media Test User",
         "password": "supersecurepassword123",
     }
-    client.post("/api/v1/auth/register", json=payload)
+    registered = client.post("/api/v1/auth/register", json=payload)
+    assert registered.status_code == 201
+    verification_token = registered.json()["email_verification_token"]
+    assert verification_token
+    assert client.post("/api/v1/auth/verify-email", json={"token": verification_token}).status_code == 200
     login_res = client.post(
         "/api/v1/auth/login",
         json={"identifier": "mediatest", "password": "supersecurepassword123"},

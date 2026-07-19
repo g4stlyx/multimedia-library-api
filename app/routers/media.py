@@ -6,9 +6,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
-from app.core.rate_limit import rate_limit
+from app.core.rate_limit import rate_limit, rate_limit_user
 from app.core.request_context import request_id_context
-from app.core.permissions import get_current_active_user
+from app.core.permissions import get_current_active_user, get_current_verified_user
 from app.database import get_db
 from app.models.media import MediaType
 from app.models.user import User
@@ -31,12 +31,14 @@ def list_popular_media(
 
 @router.get("/search", response_model=list[MediaSearchResponse])
 async def search_media(
-    q: str = Query(..., min_length=1, description="Search query"),
+    q: str = Query(..., min_length=1, max_length=200, description="Search query"),
     type: MediaType | None = Query(None, description="Optional media type filter"),
     page: int = Query(1, ge=1, description="Page number"),
     limit: int = Query(20, ge=1, le=100, description="Max results per page"),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_verified_user),
     db: Session = Depends(get_db),
+    _: None = Depends(rate_limit("media:search", limit=60, window_seconds=300)),
+    __: None = Depends(rate_limit_user("media:search", limit=120, window_seconds=300)),
 ) -> list[MediaSearchResponse]:
     settings = get_settings()
     service = MediaService(db, settings)
@@ -68,11 +70,14 @@ def get_media_details(
 @router.post(
     "/{media_id}/refresh",
     response_model=MediaPublic,
-    dependencies=[Depends(rate_limit("media:refresh", limit=20, window_seconds=300))],
+    dependencies=[
+        Depends(rate_limit("media:refresh", limit=20, window_seconds=300)),
+        Depends(rate_limit_user("media:refresh", limit=20, window_seconds=300)),
+    ],
 )
 async def refresh_media(
     media_id: uuid.UUID,
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_verified_user),
     db: Session = Depends(get_db),
 ) -> MediaPublic:
     try:
@@ -89,10 +94,17 @@ async def refresh_media(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(error)) from None
 
 
-@router.post("/external/add", response_model=MediaPublic)
+@router.post(
+    "/external/add",
+    response_model=MediaPublic,
+    dependencies=[
+        Depends(rate_limit("media:external-add", limit=20, window_seconds=300)),
+        Depends(rate_limit_user("media:external-add", limit=30, window_seconds=300)),
+    ],
+)
 async def add_external_media(
     body: MediaExternalAddRequest,
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_verified_user),
     db: Session = Depends(get_db),
 ) -> MediaPublic:
     settings = get_settings()

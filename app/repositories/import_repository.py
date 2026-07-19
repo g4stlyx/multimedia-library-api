@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import func, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.models.import_job import ImportItem, ImportItemStatus, ImportJob, ImportJobStatus, ImportSource
@@ -48,6 +48,87 @@ class ImportRepository:
         statement = select(ImportItem).where(ImportItem.import_job_id == job_id, ImportItem.status == ImportItemStatus.PENDING).order_by(ImportItem.row_number)
         return list(self.db.scalars(statement).all())
 
+    def claim_job(
+        self,
+        *,
+        job_id: uuid.UUID,
+        worker_id: str,
+        lease_seconds: int,
+    ) -> ImportJob | None:
+        now = datetime.now(timezone.utc)
+        statement = (
+            select(ImportJob)
+            .where(
+                ImportJob.id == job_id,
+                or_(
+                    ImportJob.status == ImportJobStatus.PENDING,
+                    and_(
+                        ImportJob.status == ImportJobStatus.PROCESSING,
+                        ImportJob.lease_expires_at.is_not(None),
+                        ImportJob.lease_expires_at < now,
+                    ),
+                ),
+            )
+            .with_for_update(skip_locked=True)
+        )
+        job = self.db.scalar(statement)
+        if job is None:
+            return None
+        self._apply_claim(job, worker_id=worker_id, now=now, lease_seconds=lease_seconds)
+        return job
+
+    def claim_next_job(self, *, worker_id: str, lease_seconds: int) -> ImportJob | None:
+        now = datetime.now(timezone.utc)
+        statement = (
+            select(ImportJob)
+            .where(
+                or_(
+                    ImportJob.status == ImportJobStatus.PENDING,
+                    and_(
+                        ImportJob.status == ImportJobStatus.PROCESSING,
+                        ImportJob.lease_expires_at.is_not(None),
+                        ImportJob.lease_expires_at < now,
+                    ),
+                )
+            )
+            .order_by(ImportJob.created_at.asc())
+            .with_for_update(skip_locked=True)
+            .limit(1)
+        )
+        job = self.db.scalar(statement)
+        if job is None:
+            return None
+        self._apply_claim(job, worker_id=worker_id, now=now, lease_seconds=lease_seconds)
+        return job
+
+    @staticmethod
+    def _apply_claim(
+        job: ImportJob,
+        *,
+        worker_id: str,
+        now: datetime,
+        lease_seconds: int,
+    ) -> None:
+        job.status = ImportJobStatus.PROCESSING
+        job.worker_id = worker_id
+        job.lease_expires_at = now + timedelta(seconds=lease_seconds)
+        job.attempt_count += 1
+        if job.started_at is None:
+            job.started_at = now
+
+    @staticmethod
+    def renew_lease(job: ImportJob, *, worker_id: str, now: datetime, lease_seconds: int) -> bool:
+        if job.status != ImportJobStatus.PROCESSING or job.worker_id != worker_id:
+            return False
+        job.lease_expires_at = now + timedelta(seconds=lease_seconds)
+        return True
+
+    @staticmethod
+    def release_claim(job: ImportJob, *, worker_id: str) -> None:
+        if job.worker_id == worker_id:
+            job.worker_id = None
+            job.lease_expires_at = None
+
     def get_item_owned(self, *, item_id: uuid.UUID, job_id: uuid.UUID, user_id: uuid.UUID) -> ImportItem | None:
         statement = select(ImportItem).join(ImportJob).where(ImportItem.id == item_id, ImportItem.import_job_id == job_id, ImportJob.user_id == user_id)
         return self.db.scalar(statement)
@@ -59,6 +140,8 @@ class ImportRepository:
             job.started_at = now
         if status in {ImportJobStatus.COMPLETED, ImportJobStatus.FAILED, ImportJobStatus.CANCELLED}:
             job.finished_at = now
+            job.worker_id = None
+            job.lease_expires_at = None
         if error_message is not None:
             job.error_message = error_message
 

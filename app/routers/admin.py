@@ -2,15 +2,15 @@ from __future__ import annotations
 
 import uuid
 from typing import Any
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, status, Query, Request, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select, func, case
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings, get_settings
 from app.core.permissions import require_admin_level
-from app.core.security import utcnow, hash_token
+from app.core.security import utcnow
 from app.core.request_context import request_id_context
 from app.database import get_db
 from app.models.user import User, UserRole
@@ -34,7 +34,6 @@ from app.schemas.admin import (
 from app.schemas.auth import UserPublic
 from app.schemas.media import MediaPublic
 from app.services.admin_service import AdminService
-from app.services.backup_service import BackupService
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -288,41 +287,53 @@ def list_backups(
     return {"total": total, "items": items}
 
 
-async def _run_async_backup(settings: Settings) -> None:
-    # Need to run in a standalone db session
-    from app.database import SessionLocal
-    db = SessionLocal()
-    try:
-        service = BackupService(db, settings)
-        await service.run_backup()
-    except Exception:
-        logger.exception("Background task backup execution failed")
-    finally:
-        db.close()
-
-
 @router.post("/backups/trigger", response_model=BackupMetadataPublic)
 def trigger_backup(
-    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
     current_user: User = Depends(require_admin_level(0)),
 ) -> Any:
-    # Check if there is already a pending backup
     repo = BackupRepository(db)
-    stmt = select(BackupMetadata).where(BackupMetadata.status == "pending")
-    pending = db.scalar(stmt)
-    if pending:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="A database backup is already running in the background",
+    now = datetime.now(timezone.utc)
+    active_backup = repo.get_active_backup()
+    if active_backup:
+        started_at = active_backup.started_at
+        if started_at.tzinfo is None:
+            started_at = started_at.replace(tzinfo=timezone.utc)
+        lease_expires_at = active_backup.lease_expires_at
+        if lease_expires_at and lease_expires_at.tzinfo is None:
+            lease_expires_at = lease_expires_at.replace(tzinfo=timezone.utc)
+        is_healthy_processing = (
+            active_backup.status == "processing"
+            and lease_expires_at is not None
+            and lease_expires_at > now
         )
+        is_recent_pending = (
+            active_backup.status == "pending"
+            and started_at > now - timedelta(minutes=settings.backup_max_runtime_minutes)
+        )
+        if is_healthy_processing or is_recent_pending:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="A database backup is already running in the background",
+            )
+        repo.update_backup_failed(
+            backup=active_backup,
+            error_message="Marked failed after exceeding the configured backup runtime",
+        )
+        db.commit()
 
-    # Initialize metadata
-    backup_record = repo.create_backup_metadata(started_at=datetime.now(timezone.utc))
-    db.commit()
+    try:
+        backup_record = repo.create_backup_metadata(started_at=now)
+        db.commit()
+    except Exception:
+        db.rollback()
+        # The partial unique index serializes concurrent trigger requests.
+        if repo.get_active_backup() is not None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="A database backup is already running in the background",
+            ) from None
+        raise
 
-    # Enqueue background task
-    background_tasks.add_task(_run_async_backup, settings)
-    
     return backup_record

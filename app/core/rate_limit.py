@@ -6,6 +6,8 @@ from dataclasses import dataclass
 from fastapi import Depends, HTTPException, Request, status
 
 from app.core.config import Settings, get_settings
+from app.core.permissions import get_current_active_user
+from app.models.user import User
 
 logger = logging.getLogger("app.rate_limit")
 
@@ -106,6 +108,25 @@ def rate_limit(
         client_ip = get_client_ip(request, settings)
         limiter.enforce(
             key=f"rate:{group}:ip:{client_ip}",
+            limit=limit,
+            window_seconds=window_seconds,
+        )
+
+    return dependency
+
+
+def rate_limit_user(
+    group: str,
+    *,
+    limit: int,
+    window_seconds: int,
+):
+    def dependency(
+        current_user: User = Depends(get_current_active_user),
+        limiter: RedisRateLimiter = Depends(get_rate_limiter),
+    ) -> None:
+        limiter.enforce(
+            key=f"rate:{group}:user:{current_user.id}",
             limit=limit,
             window_seconds=window_seconds,
         )

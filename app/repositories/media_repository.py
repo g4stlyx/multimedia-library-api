@@ -15,10 +15,15 @@ class MediaRepository:
     def __init__(self, db: Session) -> None:
         self.db = db
 
-    def get_by_id(self, media_id: uuid.UUID) -> Media | None:
-        return self.db.get(Media, media_id)
+    def get_by_id(self, media_id: uuid.UUID, *, include_deleted: bool = False) -> Media | None:
+        stmt = select(Media).where(Media.id == media_id)
+        if not include_deleted:
+            stmt = stmt.where(Media.deleted_at.is_(None))
+        return self.db.scalar(stmt)
 
-    def get_by_external_id(self, provider: str, external_id: str) -> Media | None:
+    def get_by_external_id(
+        self, provider: str, external_id: str, *, include_deleted: bool = False
+    ) -> Media | None:
         stmt = (
             select(Media)
             .join(MediaExternalId, Media.id == MediaExternalId.media_id)
@@ -27,16 +32,19 @@ class MediaRepository:
                 MediaExternalId.external_id == external_id.strip(),
             )
         )
+        if not include_deleted:
+            stmt = stmt.where(Media.deleted_at.is_(None))
         return self.db.scalar(stmt)
 
-    def get_by_imdb_id(self, imdb_id: str) -> Media | None:
-        return self.get_by_external_id("imdb", imdb_id)
+    def get_by_imdb_id(self, imdb_id: str, *, include_deleted: bool = False) -> Media | None:
+        return self.get_by_external_id("imdb", imdb_id, include_deleted=include_deleted)
 
     def search_local(
         self,
         query: str,
         media_type: MediaType | None = None,
         limit: int = 20,
+        include_deleted: bool = False,
     ) -> list[Media]:
         query_normalized = normalize_title(query)
         if not query_normalized:
@@ -51,6 +59,8 @@ class MediaRepository:
             (Media.normalized_title.like(f"%{query_normalized}%"))
             | title_exists
         )
+        if not include_deleted:
+            stmt = stmt.where(Media.deleted_at.is_(None))
 
         if media_type:
             stmt = stmt.where(Media.media_type == media_type)

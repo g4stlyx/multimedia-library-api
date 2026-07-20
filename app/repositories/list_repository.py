@@ -2,10 +2,13 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime, timezone
-from sqlalchemy import func, or_, select
-from sqlalchemy.orm import Session
+from sqlalchemy import func, select
+from sqlalchemy.orm import Session, with_loader_criteria
 
+from app.models.media import Media
 from app.models.social import MediaList, ListItem
+from app.models.user import User
+from app.services.visibility_service import VisibilityService
 
 
 class ListRepository:
@@ -13,7 +16,9 @@ class ListRepository:
         self.db = db
 
     def get_by_id(self, list_id: uuid.UUID) -> MediaList | None:
-        stmt = select(MediaList).where(
+        stmt = select(MediaList).options(
+            with_loader_criteria(Media, Media.deleted_at.is_(None), include_aliases=True)
+        ).where(
             MediaList.id == list_id,
             MediaList.deleted_at.is_(None)
         )
@@ -21,21 +26,27 @@ class ListRepository:
 
     def list_lists(
         self,
+        *,
+        viewer: User,
         user_id: uuid.UUID | None = None,
         visibility: str | None = None,
-        viewer_user_id: uuid.UUID | None = None,
         limit: int = 20,
         offset: int = 0
     ) -> list[MediaList]:
-        stmt = select(MediaList).where(MediaList.deleted_at.is_(None))
+        stmt = select(MediaList).options(
+            with_loader_criteria(Media, Media.deleted_at.is_(None), include_aliases=True)
+        ).where(MediaList.deleted_at.is_(None))
         if user_id:
             stmt = stmt.where(MediaList.user_id == user_id)
         if visibility:
             stmt = stmt.where(MediaList.visibility == visibility)
-        if viewer_user_id:
-            stmt = stmt.where(
-                or_(MediaList.visibility == "public", MediaList.user_id == viewer_user_id)
+        stmt = stmt.where(
+            VisibilityService(self.db).readable_by(
+                owner_column=MediaList.user_id,
+                visibility_column=MediaList.visibility,
+                viewer=viewer,
             )
+        )
         stmt = stmt.order_by(MediaList.created_at.desc()).offset(offset).limit(limit)
         return list(self.db.scalars(stmt).all())
 

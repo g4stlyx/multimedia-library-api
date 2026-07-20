@@ -6,7 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models.library import UserMediaEntry
-from app.models.media import LibraryStatus
+from app.models.media import LibraryStatus, Media
 
 
 class LibraryRepository:
@@ -14,17 +14,19 @@ class LibraryRepository:
         self.db = db
 
     def get_by_id(self, entry_id: uuid.UUID) -> UserMediaEntry | None:
-        stmt = select(UserMediaEntry).where(
+        stmt = select(UserMediaEntry).join(Media).where(
             UserMediaEntry.id == entry_id,
-            UserMediaEntry.deleted_at.is_(None)
+            UserMediaEntry.deleted_at.is_(None),
+            Media.deleted_at.is_(None),
         )
         return self.db.scalar(stmt)
 
     def get_active_by_user_and_media(self, user_id: uuid.UUID, media_id: uuid.UUID) -> UserMediaEntry | None:
-        stmt = select(UserMediaEntry).where(
+        stmt = select(UserMediaEntry).join(Media).where(
             UserMediaEntry.user_id == user_id,
             UserMediaEntry.media_id == media_id,
-            UserMediaEntry.deleted_at.is_(None)
+            UserMediaEntry.deleted_at.is_(None),
+            Media.deleted_at.is_(None),
         )
         return self.db.scalar(stmt)
 
@@ -42,9 +44,10 @@ class LibraryRepository:
         limit: int = 20,
         offset: int = 0
     ) -> list[UserMediaEntry]:
-        stmt = select(UserMediaEntry).where(
+        stmt = select(UserMediaEntry).join(Media).where(
             UserMediaEntry.user_id == user_id,
-            UserMediaEntry.deleted_at.is_(None)
+            UserMediaEntry.deleted_at.is_(None),
+            Media.deleted_at.is_(None),
         )
         if status:
             stmt = stmt.where(UserMediaEntry.status == status)

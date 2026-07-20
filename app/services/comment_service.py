@@ -6,11 +6,11 @@ from sqlalchemy.orm import Session
 
 from app.models.social import Comment
 from app.models.user import User
-from app.core.permissions import is_admin_at_level
 from app.repositories.comment_repository import CommentRepository
 from app.repositories.review_repository import ReviewRepository
 from app.repositories.list_repository import ListRepository
 from app.repositories.media_repository import MediaRepository
+from app.services.visibility_service import VisibilityService
 
 
 class CommentService:
@@ -46,23 +46,22 @@ class CommentService:
             target = self.review_repo.get_by_id(target_id)
         elif t_type == "list":
             target = self.list_repo.get_by_id(target_id)
-        if (
-            target is not None
-            and target.visibility != "public"
-            and target.user_id != viewer.id
-            and not is_admin_at_level(viewer, 1)
-        ):
-            raise PermissionError("This discussion is not available to you")
+        if target is not None:
+            VisibilityService(self.db).require_viewable(
+                owner_user_id=target.user_id,
+                visibility=target.visibility,
+                viewer=viewer,
+            )
 
     def add_comment(
         self,
-        user_id: uuid.UUID,
+        user: User,
         target_type: str,
         target_id: uuid.UUID,
         body: str,
         parent_comment_id: uuid.UUID | None = None
     ) -> Comment:
-        self._verify_target_exists(target_type, target_id)
+        self.verify_target_access(target_type, target_id, user)
 
         if parent_comment_id:
             parent = self.repo.get_by_id(parent_comment_id)
@@ -74,7 +73,7 @@ class CommentService:
                 raise ValueError("Only one level of comment replies is supported")
 
         comment = self.repo.create(
-            user_id=user_id,
+            user_id=user.id,
             target_type=target_type,
             target_id=target_id,
             body=body,

@@ -8,11 +8,11 @@ This backlog tracks the Medium and Low findings from [the 2026-07-19 static-anal
 
 - [ ] **M-02: Dedicated backup key management** — Require a distinct backup encryption key outside local/test, persist a key ID with every backup, and document rotation/re-encryption. Do not reuse JWT key material.
 
-- [ ] **M-03: Soft-delete query policy** — Make active-only media lookups the default; expose explicit admin-only include-deleted queries. Add merge/search/library regression tests.
+- [x] **M-03: Soft-delete query policy** — Active-only media lookups are now the repository default. Deleted records are available only through an explicit Admin Level 1 endpoint with `include_deleted=true`; merge, search, and library behavior are regression-tested.
 
-- [ ] **M-04: Text/request bounds** — Define and enforce length limits for comments, reviews, lists, and private notes at the DTO and edge layers. Keep content plain text unless a vetted sanitization pipeline is introduced.
+- [x] **M-04: Text/request bounds** — DTOs, browser controls, and database checks now bound comments (2,000), reviews (5,000), list descriptions (5,000), list item notes (2,000), and private notes (5,000) characters. Markup and unsupported controls are rejected at the API boundary.
 
-- [ ] **M-05: Followers visibility** — Either remove `followers` from the public API/UI until it exists, or implement a follower graph, a centralized visibility policy, database constraints, and owner/follower/non-follower tests.
+- [x] **M-05: Followers visibility** — Implemented a durable follower graph, follower/following discovery endpoints, and a centralized policy for review, list, and discussion visibility. Owner/follower/non-follower regression coverage is included.
 
 - [ ] **M-06: ORM query plans** — Add endpoint-specific eager loading and query-count tests for nested media, genres, lists, reviews, and library responses.
 

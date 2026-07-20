@@ -244,6 +244,9 @@ def test_media_merge_service(db_session: Session):
     assert len(reviews) == 1
     assert reviews[0].media_id == target.id
 
+    with pytest.raises(LookupError):
+        service.merge_media(source_id=source.id, target_id=target.id, actor_user=user)
+
 
 @patch("app.storage.r2.CloudflareR2Storage")
 def test_backup_restore_pipeline(mock_r2_class, db_session: Session):

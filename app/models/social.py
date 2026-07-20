@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import DateTime, ForeignKey, Index, Integer, String, Text, Boolean, text
+from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, Index, Integer, String, Text, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
@@ -12,6 +12,7 @@ from app.models.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
 class Review(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "reviews"
     __table_args__ = (
+        CheckConstraint("body IS NULL OR length(body) <= 5000", name="ck_reviews_body_length"),
         Index(
             "ix_reviews_user_media_active",
             "user_id",
@@ -45,6 +46,9 @@ class Review(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
 class Comment(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "comments"
+    __table_args__ = (
+        CheckConstraint("length(body) <= 2000", name="ck_comments_body_length"),
+    )
 
     user_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"),
@@ -67,6 +71,12 @@ class Comment(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
 class MediaList(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "lists"
+    __table_args__ = (
+        CheckConstraint(
+            "description IS NULL OR length(description) <= 5000",
+            name="ck_lists_description_length",
+        ),
+    )
 
     user_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"),
@@ -85,6 +95,7 @@ class MediaList(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 class ListItem(UUIDPrimaryKeyMixin, Base):
     __tablename__ = "list_items"
     __table_args__ = (
+        CheckConstraint("note IS NULL OR length(note) <= 2000", name="ck_list_items_note_length"),
         Index("ix_list_items_list_media", "list_id", "media_id", unique=True),
         Index("ix_list_items_list_position", "list_id", "position", unique=True),
     )

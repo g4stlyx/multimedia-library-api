@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Index, Integer, String, Text, Boolean, text
+from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, Index, Integer, String, Text, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
@@ -13,6 +13,10 @@ from app.models.media import LibraryStatus
 class UserMediaEntry(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "user_media_entries"
     __table_args__ = (
+        CheckConstraint(
+            "notes_private IS NULL OR length(notes_private) <= 5000",
+            name="ck_user_media_entries_notes_private_length",
+        ),
         Index(
             "ix_user_media_entries_user_media_active",
             "user_id",

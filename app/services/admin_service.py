@@ -10,6 +10,7 @@ from app.models.library import UserMediaEntry
 from app.models.social import Review, Comment, ListItem
 from app.models.user import User
 from app.repositories.audit_repository import AuditRepository
+from app.repositories.media_repository import MediaRepository
 
 
 class AdminService:
@@ -20,8 +21,14 @@ class AdminService:
     def get_duplicate_candidates(self) -> list[Media]:
         """Fetch all media items flagged with potential duplicates."""
         # Query Media records where duplicate_candidates list is present in metadata_json
-        stmt = select(Media).where(Media.metadata_json["duplicate_candidates"] != None)
+        stmt = select(Media).where(
+            Media.metadata_json["duplicate_candidates"] != None,
+            Media.deleted_at.is_(None),
+        )
         return list(self.db.scalars(stmt).all())
+
+    def get_media(self, *, media_id: uuid.UUID, include_deleted: bool = False) -> Media | None:
+        return MediaRepository(self.db).get_by_id(media_id, include_deleted=include_deleted)
 
     def merge_media(
         self,

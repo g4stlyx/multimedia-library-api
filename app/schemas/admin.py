@@ -7,6 +7,7 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from app.schemas.auth import UserPublic
+from app.schemas.media import MediaPublic
 from app.models.user import UserRole
 
 
@@ -62,6 +63,10 @@ class BackupMetadataPublic(BaseModel):
 class MediaMergeInput(BaseModel):
     source_id: uuid.UUID
     target_id: uuid.UUID
+
+
+class MediaAdminPublic(MediaPublic):
+    deleted_at: datetime | None = None
 
 
 class UserModerationInput(BaseModel):

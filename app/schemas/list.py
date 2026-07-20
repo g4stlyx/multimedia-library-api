@@ -2,14 +2,17 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
+from app.schemas.content import LIST_DESCRIPTION_MAX_LENGTH, LIST_ITEM_NOTE_MAX_LENGTH, validate_optional_plain_text
 from app.schemas.media import MediaPublic
 
 
 class ListItemBase(BaseModel):
     media_id: uuid.UUID
-    note: str | None = None
+    note: str | None = Field(None, max_length=LIST_ITEM_NOTE_MAX_LENGTH)
+
+    _validate_note = field_validator("note")(validate_optional_plain_text)
 
 
 class ListItemCreate(ListItemBase):
@@ -21,7 +24,9 @@ class ListItemAdd(ListItemBase):
 
 
 class ListItemUpdate(BaseModel):
-    note: str | None = None
+    note: str | None = Field(None, max_length=LIST_ITEM_NOTE_MAX_LENGTH)
+
+    _validate_note = field_validator("note")(validate_optional_plain_text)
 
 
 class ListItemReorder(BaseModel):
@@ -40,8 +45,10 @@ class ListItemPublic(ListItemBase):
 
 class ListBase(BaseModel):
     title: str = Field(..., min_length=1, max_length=255)
-    description: str | None = None
+    description: str | None = Field(None, max_length=LIST_DESCRIPTION_MAX_LENGTH)
     visibility: str = Field("public", pattern="^(public|followers|private)$")
+
+    _validate_description = field_validator("description")(validate_optional_plain_text)
 
 
 class ListCreate(ListBase):
@@ -50,8 +57,10 @@ class ListCreate(ListBase):
 
 class ListUpdate(BaseModel):
     title: str | None = Field(None, min_length=1, max_length=255)
-    description: str | None = None
+    description: str | None = Field(None, max_length=LIST_DESCRIPTION_MAX_LENGTH)
     visibility: str | None = Field(None, pattern="^(public|followers|private)$")
+
+    _validate_description = field_validator("description")(validate_optional_plain_text)
 
 
 class ListPublic(ListBase):

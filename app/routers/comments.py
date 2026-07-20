@@ -23,9 +23,8 @@ def create_comment(
 ) -> CommentPublic:
     service = CommentService(db)
     try:
-        service.verify_target_access(body.target_type, body.target_id, current_user)
         return service.add_comment(
-            user_id=current_user.id,
+            user=current_user,
             target_type=body.target_type,
             target_id=body.target_id,
             body=body.body,

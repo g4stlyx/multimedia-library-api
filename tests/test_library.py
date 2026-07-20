@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pytest
 import uuid
+from datetime import datetime, timezone
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
@@ -148,3 +149,31 @@ def test_library_crud_and_security(
     readd_data = res_readd.json()
     assert readd_data["rating_value"] == 90
     assert readd_data["id"] == entry_id  # Restored existing row!
+
+
+def test_soft_deleted_media_cannot_be_added_to_a_library(
+    client: TestClient,
+    db_session: Session,
+    test_media: Media,
+    auth_headers_user_a: dict[str, str],
+):
+    created = client.post(
+        "/api/v1/library",
+        json={"media_id": str(test_media.id), "status": "PLANNED"},
+        headers=auth_headers_user_a,
+    )
+    assert created.status_code == 201
+
+    test_media.deleted_at = datetime.now(timezone.utc)
+    db_session.commit()
+
+    assert client.get("/api/v1/library", headers=auth_headers_user_a).json() == []
+    assert client.get(f"/api/v1/library/{created.json()['id']}", headers=auth_headers_user_a).status_code == 404
+
+    response = client.post(
+        "/api/v1/library",
+        json={"media_id": str(test_media.id), "status": "PLANNED"},
+        headers=auth_headers_user_a,
+    )
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Media not found"

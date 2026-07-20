@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
+from app.schemas.content import PRIVATE_NOTE_MAX_LENGTH, validate_optional_plain_text
 from app.models.media import LibraryStatus
 from app.schemas.media import MediaPublic
 
@@ -14,8 +15,10 @@ class LibraryEntryBase(BaseModel):
     progress_value: int | None = Field(None, ge=0)
     progress_total: int | None = Field(None, ge=0)
     progress_unit: str | None = Field(None, max_length=50)
-    notes_private: str | None = None
+    notes_private: str | None = Field(None, max_length=PRIVATE_NOTE_MAX_LENGTH)
     is_favorite: bool = False
+
+    _validate_notes_private = field_validator("notes_private")(validate_optional_plain_text)
 
 
 class LibraryEntryCreate(LibraryEntryBase):
@@ -28,10 +31,12 @@ class LibraryEntryUpdate(BaseModel):
     progress_value: int | None = Field(None, ge=0)
     progress_total: int | None = Field(None, ge=0)
     progress_unit: str | None = Field(None, max_length=50)
-    notes_private: str | None = None
+    notes_private: str | None = Field(None, max_length=PRIVATE_NOTE_MAX_LENGTH)
     is_favorite: bool | None = None
     started_at: datetime | None = None
     completed_at: datetime | None = None
+
+    _validate_notes_private = field_validator("notes_private")(validate_optional_plain_text)
 
 
 class LibraryEntryPublic(LibraryEntryBase):

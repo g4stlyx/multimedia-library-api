@@ -10,6 +10,7 @@ from app.database import get_db
 from app.models.user import User
 from app.schemas.review import ReviewCreate, ReviewUpdate, ReviewPublic
 from app.services.review_service import ReviewService
+from app.services.visibility_service import VisibilityService
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/reviews", tags=["reviews"])
@@ -49,7 +50,7 @@ def list_reviews(
     return service.repo.list_reviews(
         media_id=media_id,
         user_id=user_id,
-        viewer_user_id=current_user.id,
+        viewer=current_user,
         limit=limit,
         offset=offset,
     )
@@ -65,8 +66,12 @@ def get_review(
     review = service.repo.get_by_id(review_id)
     if not review:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Review not found")
-    if review.visibility != "public" and review.user_id != current_user.id:
-        assert_owner_or_admin(resource_user_id=review.user_id, current_user=current_user)
+    try:
+        VisibilityService(db).require_viewable(
+            owner_user_id=review.user_id, visibility=review.visibility, viewer=current_user
+        )
+    except PermissionError as error:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(error)) from None
     return review
 
 

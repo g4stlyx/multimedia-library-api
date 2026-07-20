@@ -10,6 +10,7 @@ from app.database import get_db
 from app.models.user import User
 from app.schemas.list import ListCreate, ListUpdate, ListPublic, ListItemAdd, ListItemReorder, ListItemPublic, ListItemUpdate
 from app.services.list_service import ListService
+from app.services.visibility_service import VisibilityService
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/lists", tags=["lists"])
@@ -49,7 +50,7 @@ def list_lists(
     return service.repo.list_lists(
         user_id=user_id,
         visibility=visibility,
-        viewer_user_id=current_user.id,
+        viewer=current_user,
         limit=limit,
         offset=offset,
     )
@@ -65,8 +66,12 @@ def get_list(
     mlist = service.repo.get_by_id(list_id)
     if not mlist:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="List not found")
-    if mlist.visibility != "public" and mlist.user_id != current_user.id:
-        assert_owner_or_admin(resource_user_id=mlist.user_id, current_user=current_user)
+    try:
+        VisibilityService(db).require_viewable(
+            owner_user_id=mlist.user_id, visibility=mlist.visibility, viewer=current_user
+        )
+    except PermissionError as error:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(error)) from None
     return mlist
 
 

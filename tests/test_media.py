@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import uuid
+from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 import pytest
 
@@ -67,6 +68,19 @@ def test_media_repository_basics(db_session):
     fetched = repo.get_by_external_id("tmdb", "603")
     assert fetched
     assert fetched.id == media.id
+
+
+def test_media_repository_excludes_soft_deleted_records_by_default(db_session):
+    repo = MediaRepository(db_session)
+    media = repo.create_media(media_type=MediaType.MOVIE, canonical_title="Hidden Catalog Record")
+    repo.add_external_id(media.id, "tmdb_movie", "hidden-1")
+    media.deleted_at = datetime.now(timezone.utc)
+    db_session.commit()
+
+    assert repo.get_by_id(media.id) is None
+    assert repo.get_by_external_id("tmdb_movie", "hidden-1") is None
+    assert repo.search_local("Hidden Catalog Record") == []
+    assert repo.get_by_id(media.id, include_deleted=True) is not None
 
 
 def test_popular_media_is_public_and_sorted(db_session, client):

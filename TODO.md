@@ -156,3 +156,4 @@
 
 ## Phase 9 - Extras
 - [ ] Steam and spotify import support
+- [ ] Create use functionality

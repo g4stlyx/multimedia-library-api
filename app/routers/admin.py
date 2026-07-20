@@ -26,6 +26,7 @@ from app.schemas.admin import (
     AuthErrorListResponse,
     BackupListResponse,
     BackupMetadataPublic,
+    MediaAdminPublic,
     MediaMergeInput,
     UserListResponse,
     UserModerationInput,
@@ -250,6 +251,19 @@ def get_duplicate_candidates(
     current_user: User = Depends(require_admin_level(1)),
 ) -> Any:
     return AdminService(db).get_duplicate_candidates()
+
+
+@router.get("/media/{media_id}", response_model=MediaAdminPublic)
+def get_media_for_admin(
+    media_id: uuid.UUID,
+    include_deleted: bool = Query(False, description="Include soft-deleted media"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin_level(1)),
+) -> MediaAdminPublic:
+    media = AdminService(db).get_media(media_id=media_id, include_deleted=include_deleted)
+    if media is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Media not found")
+    return media
 
 
 @router.post("/media/merge", response_model=MediaPublic)

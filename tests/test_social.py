@@ -365,3 +365,86 @@ def test_non_public_reviews_lists_and_comments_are_not_discoverable(
     assert client.get(f"/api/v1/lists/{list_id}", headers=auth_headers_user_b).status_code == 403
     other_lists = client.get("/api/v1/lists", headers=auth_headers_user_b)
     assert all(item["id"] != list_id for item in other_lists.json())
+
+
+def test_follower_visibility_allows_followers_but_not_unrelated_users(
+    client: TestClient,
+    test_media: Media,
+):
+    def register(username: str) -> tuple[dict[str, str], str]:
+        response = client.post(
+            "/api/v1/auth/register",
+            json={
+                "email": f"{username}@example.com",
+                "username": username,
+                "password": "securepassword123",
+            },
+        )
+        assert response.status_code == 201
+        payload = response.json()
+        return {"Authorization": f"Bearer {payload['access_token']}"}, payload["user"]["id"]
+
+    owner_headers, owner_id = register("followowner")
+    follower_headers, _ = register("actualfollower")
+    outsider_headers, _ = register("notafollower")
+
+    review = client.post(
+        "/api/v1/reviews",
+        json={"media_id": str(test_media.id), "body": "Followers can read this", "visibility": "followers"},
+        headers=owner_headers,
+    )
+    assert review.status_code == 201
+    review_id = review.json()["id"]
+
+    assert client.get(f"/api/v1/reviews/{review_id}", headers=outsider_headers).status_code == 403
+    assert client.get(f"/api/v1/reviews?media_id={test_media.id}", headers=outsider_headers).json() == []
+    assert client.post(
+        "/api/v1/comments",
+        json={"target_type": "review", "target_id": review_id, "body": "Trying to bypass visibility"},
+        headers=outsider_headers,
+    ).status_code == 403
+
+    assert client.put(f"/api/v1/users/{owner_id}/follow", headers=follower_headers).status_code == 204
+    follower_reviews = client.get(f"/api/v1/reviews?media_id={test_media.id}", headers=follower_headers)
+    assert follower_reviews.status_code == 200
+    assert [item["id"] for item in follower_reviews.json()] == [review_id]
+    assert client.post(
+        "/api/v1/comments",
+        json={"target_type": "review", "target_id": review_id, "body": "Now I can comment"},
+        headers=follower_headers,
+    ).status_code == 201
+
+    private_list = client.post(
+        "/api/v1/lists",
+        json={"title": "Owner only", "visibility": "private"},
+        headers=owner_headers,
+    )
+    assert private_list.status_code == 201
+    assert client.get(f"/api/v1/lists/{private_list.json()['id']}", headers=follower_headers).status_code == 403
+
+
+def test_content_bounds_and_plain_text_validation(
+    client: TestClient,
+    test_media: Media,
+    auth_headers_user_a: dict[str, str],
+):
+    assert client.post(
+        "/api/v1/reviews",
+        json={"media_id": str(test_media.id), "body": "x" * 5001},
+        headers=auth_headers_user_a,
+    ).status_code == 422
+    assert client.post(
+        "/api/v1/comments",
+        json={"target_type": "media", "target_id": str(test_media.id), "body": "<script>alert(1)</script>"},
+        headers=auth_headers_user_a,
+    ).status_code == 422
+    assert client.post(
+        "/api/v1/lists",
+        json={"title": "Bounded", "description": "x" * 5001},
+        headers=auth_headers_user_a,
+    ).status_code == 422
+    assert client.post(
+        "/api/v1/library",
+        json={"media_id": str(test_media.id), "notes_private": "x" * 5001},
+        headers=auth_headers_user_a,
+    ).status_code == 422

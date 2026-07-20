@@ -44,7 +44,7 @@ class MediaService:
 
     def get_media_details(self, media_id: uuid.UUID) -> MediaDetailPublic | None:
         media = self.repo.get_by_id(media_id)
-        if not media or media.deleted_at is not None:
+        if not media:
             return None
         average_rating, rating_count = self.repo.get_rating_aggregation(media.id)
         media_data = MediaPublic.model_validate(media).model_dump()
@@ -218,6 +218,8 @@ class MediaService:
         existing_media = self.repo.get_by_external_id(db_provider, external_id_clean)
         if existing_media:
             return existing_media
+        if self.repo.get_by_external_id(db_provider, external_id_clean, include_deleted=True):
+            raise ValueError("Media is unavailable")
 
         # Fetch detailed metadata through the provider registry, never trusting client supplied fields.
         try:
@@ -245,6 +247,7 @@ class MediaService:
         stmt = select(Media).where(
             Media.media_type == media_type,
             Media.normalized_title == normalized_title,
+            Media.deleted_at.is_(None),
         )
         candidates = self.db.scalars(stmt).all()
 
@@ -383,7 +386,7 @@ class MediaService:
         request_id: str | None,
     ) -> Media:
         media = self.repo.get_by_id(media_id)
-        if not media or media.deleted_at is not None:
+        if not media:
             raise LookupError("Media not found")
 
         now = datetime.now(timezone.utc)
